@@ -69,9 +69,14 @@ public class TinkerGraphWorld implements World {
             throw new UnsupportedOperationException("GraphData not supported: " + graphData.name());
     }
 
+    /**
+     * We cannot use the File.separator here as that is not a valid gremlin character.
+     * @param pathToFileFromGremlin the path to a data file as taken from the Gherkin tests
+     * @return
+     */
     @Override
     public String changePathToDataFile(final String pathToFileFromGremlin) {
-        return ".." + File.separator + pathToFileFromGremlin;
+        return ".." + "/" + pathToFileFromGremlin;
     }
 
     private static Configuration getNumberIdManagerConfiguration() {

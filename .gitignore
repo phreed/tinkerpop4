@@ -39,3 +39,5 @@ BenchmarkDotNet.Artifacts/
 /Dockerfile
 docs/gremlint/
 gremlint/
+.mvn/.gradle-enterprise/gradle-enterprise-workspace-id
+
