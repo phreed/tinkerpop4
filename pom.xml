@@ -129,11 +129,11 @@ limitations under the License.
         <module>gremlin-test</module>
         <module>gremlin-groovy</module>
         <module>tinkergraph-gremlin</module>
-        <module>gremlin-javascript</module>
+<!--        <module>gremlin-javascript</module> -->
         <module>gremlin-python</module>
         <module>gremlin-dotnet</module>
-        <module>hadoop-gremlin</module>
-        <module>spark-gremlin</module>
+<!--        <module>hadoop-gremlin</module>-->
+<!--        <module>spark-gremlin</module>-->
         <module>neo4j-gremlin</module>
         <module>sparql-gremlin</module>
         <module>gremlin-driver</module>

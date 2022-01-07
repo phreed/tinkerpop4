@@ -76,7 +76,7 @@ public class TinkerGraphWorld implements World {
      */
     @Override
     public String changePathToDataFile(final String pathToFileFromGremlin) {
-        return ".." + "/" + pathToFileFromGremlin;
+        return ".." + File.separator + pathToFileFromGremlin;
     }
 
     private static Configuration getNumberIdManagerConfiguration() {
