@@ -1,0 +1,3 @@
+org.apache.tinkerpop.gremlin.tinkercat.TinkerCatFeatureTest$TinkerCatGuiceFactory
+org.apache.tinkerpop.gremlin.tinkercat.TinkerCatComputerFeatureTest$TinkerCatGuiceFactory
+org.apache.tinkerpop.gremlin.tinkercat.TinkerCatAllowNullFeatureTest$TinkerCatGuiceFactory

@@ -149,6 +149,7 @@ limitations under the License.
         <url>https://github.com/apache/tinkerpop</url>
     </scm>
     <properties>
+        <kotlin.version>1.6.10</kotlin.version>
         <antlr4.version>4.9.1</antlr4.version>
         <caffeine.version>2.3.1</caffeine.version>
         <commons.collections.version>3.2.2</commons.collections.version>
@@ -603,6 +604,11 @@ limitations under the License.
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>org.jetbrains.kotlin</groupId>
+                <artifactId>kotlin-stdlib</artifactId>
+                <version>${kotlin.version}</version>
+            </dependency>
             <dependency>
                 <groupId>org.apache.commons</groupId>
                 <artifactId>commons-configuration2</artifactId>
