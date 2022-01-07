@@ -16,20 +16,19 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.tinkerpop.gremlin.tinkercat.process;
+package org.apache.tinkerpop.gremlin.tinkercat.process
 
-import org.apache.tinkerpop.gremlin.GraphProviderClass;
-import org.apache.tinkerpop.gremlin.process.ProcessLimitedStandardSuite;
-import org.apache.tinkerpop.gremlin.tinkercat.TinkerCatProvider;
-import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat;
-import org.junit.runner.RunWith;
+import org.apache.tinkerpop.gremlin.GraphProviderClass
+import org.apache.tinkerpop.gremlin.process.ProcessLimitedStandardSuite
+import org.apache.tinkerpop.gremlin.tinkercat.TinkerCatProvider
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat
+import org.junit.runner.RunWith
 
 /**
  * Executes the Standard Gremlin Process Test Suite using TinkerCat.
  *
  * @author Stephen Mallette (http://stephen.genoprime.com)
  */
-@RunWith(ProcessLimitedStandardSuite.class)
-@GraphProviderClass(provider = TinkerCatProvider.class, graph = TinkerCat.class)
-public class TinkerCatProcessStandardTest {
-}
+@RunWith(ProcessLimitedStandardSuite::class)
+@GraphProviderClass(provider = TinkerCatProvider::class, graph = TinkerCat::class)
+class TinkerCatProcessStandardTest 

@@ -16,216 +16,252 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.tinkerpop.gremlin.tinkercat.process.computer;
+package org.apache.tinkerpop.gremlin.tinkercat.process.computer
 
-import org.apache.tinkerpop.gremlin.process.computer.GraphComputer;
-import org.apache.tinkerpop.gremlin.process.computer.GraphFilter;
-import org.apache.tinkerpop.gremlin.process.computer.VertexComputeKey;
-import org.apache.tinkerpop.gremlin.structure.Edge;
-import org.apache.tinkerpop.gremlin.structure.Element;
-import org.apache.tinkerpop.gremlin.structure.Graph;
-import org.apache.tinkerpop.gremlin.structure.Property;
-import org.apache.tinkerpop.gremlin.structure.T;
-import org.apache.tinkerpop.gremlin.structure.Vertex;
-import org.apache.tinkerpop.gremlin.structure.VertexProperty;
-import org.apache.tinkerpop.gremlin.structure.util.ElementHelper;
-import org.apache.tinkerpop.gremlin.structure.util.empty.EmptyGraph;
-import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat;
-import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerHelper;
-import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerVertex;
-import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerVertexProperty;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat
+import org.apache.tinkerpop.gremlin.process.computer.GraphFilter
+import org.apache.tinkerpop.gremlin.process.computer.VertexComputeKey
+import java.util.concurrent.ConcurrentHashMap
+import org.apache.tinkerpop.gremlin.structure.util.ElementHelper
+import org.apache.tinkerpop.gremlin.process.computer.GraphComputer
+import org.apache.tinkerpop.gremlin.process.computer.GraphComputer.ResultGraph
+import org.apache.tinkerpop.gremlin.process.computer.GraphComputer.Persist
+import org.apache.tinkerpop.gremlin.structure.*
+import org.apache.tinkerpop.gremlin.structure.util.empty.EmptyGraph
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerHelper
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerVertex
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerVertexProperty
+import java.util.ArrayList
+import java.util.HashMap
+import java.util.HashSet
+import java.util.function.BiFunction
+import java.util.function.Consumer
+import java.util.function.Function
 
 /**
  * @author Marko A. Rodriguez (http://markorodriguez.com)
  */
-public final class TinkerCatComputerView {
+class TinkerCatComputerView(
+    private val graph: TinkerCat,
+    graphFilter: GraphFilter,
+    computeKeys: Set<VertexComputeKey>
+) {
+    protected val computeKeys: MutableMap<String, VertexComputeKey>
+    private val computeProperties: MutableMap<Element, Map<String, MutableList<VertexProperty<*>>>>
+    private val legalVertices: MutableSet<Any> = HashSet()
+    private val legalEdges: MutableMap<Any, Set<Any>> = HashMap()
+    private val graphFilter: GraphFilter
 
-    private final TinkerCat graph;
-    protected final Map<String, VertexComputeKey> computeKeys;
-    private Map<Element, Map<String, List<VertexProperty<?>>>> computeProperties;
-    private final Set<Object> legalVertices = new HashSet<>();
-    private final Map<Object, Set<Object>> legalEdges = new HashMap<>();
-    private final GraphFilter graphFilter;
-
-    public TinkerCatComputerView(final TinkerCat graph, final GraphFilter graphFilter, final Set<VertexComputeKey> computeKeys) {
-        this.graph = graph;
-        this.computeKeys = new HashMap<>();
-        computeKeys.forEach(key -> this.computeKeys.put(key.getKey(), key));
-        this.computeProperties = new ConcurrentHashMap<>();
-        this.graphFilter = graphFilter;
+    init {
+        this.computeKeys = HashMap()
+        computeKeys.forEach(Consumer { key: VertexComputeKey -> this.computeKeys[key.key] = key })
+        computeProperties = ConcurrentHashMap()
+        this.graphFilter = graphFilter
         if (this.graphFilter.hasFilter()) {
-            graph.vertices().forEachRemaining(vertex -> {
-                boolean legalVertex = false;
+            graph.vertices().forEachRemaining { vertex: Vertex ->
+                var legalVertex = false
                 if (this.graphFilter.hasVertexFilter() && this.graphFilter.legalVertex(vertex)) {
-                    this.legalVertices.add(vertex.id());
-                    legalVertex = true;
+                    legalVertices.add(vertex.id())
+                    legalVertex = true
                 }
                 if ((legalVertex || !this.graphFilter.hasVertexFilter()) && this.graphFilter.hasEdgeFilter()) {
-                    final Set<Object> edges = new HashSet<>();
-                    this.legalEdges.put(vertex.id(), edges);
-                    this.graphFilter.legalEdges(vertex).forEachRemaining(edge -> edges.add(edge.id()));
+                    val edges: MutableSet<Any> = HashSet()
+                    legalEdges[vertex.id()] = edges
+                    this.graphFilter.legalEdges(vertex).forEachRemaining { edge: Edge -> edges.add(edge.id()) }
                 }
-            });
+            }
         }
     }
 
-    public <V> Property<V> addProperty(final TinkerVertex vertex, final String key, final V value) {
-        ElementHelper.validateProperty(key, value);
-        if (isComputeKey(key)) {
-            final TinkerVertexProperty<V> property = new TinkerVertexProperty<V>((TinkerVertex) vertex, key, value) {
-                @Override
-                public void remove() {
-                    removeProperty(vertex, key, this);
+    fun <V> addProperty(vertex: TinkerVertex, key: String, value: V): Property<V> {
+        ElementHelper.validateProperty(key, value)
+        return if (isComputeKey(key)) {
+            val property: TinkerVertexProperty<V> = object :
+                TinkerVertexProperty<V>(
+                    vertex,
+                    key,
+                    value
+                ) {
+                override fun remove() {
+                    removeProperty(vertex, key, this)
                 }
-            };
-            this.addValue(vertex, key, property);
-            return property;
+            }
+            addValue(vertex, key, property)
+            property
         } else {
-            throw GraphComputer.Exceptions.providedKeyIsNotAnElementComputeKey(key);
+            throw GraphComputer.Exceptions.providedKeyIsNotAnElementComputeKey(key)
         }
     }
 
-    public List<VertexProperty<?>> getProperty(final TinkerVertex vertex, final String key) {
+    fun getProperty(vertex: TinkerVertex, key: String): List<VertexProperty<*>> {
         // if the vertex property is already on the vertex, use that.
-        final List<VertexProperty<?>> vertexProperty = this.getValue(vertex, key);
-        return vertexProperty.isEmpty() ? (List) TinkerHelper.getProperties(vertex).getOrDefault(key, Collections.emptyList()) : vertexProperty;
+        val vertexProperty = this.getValue(vertex, key)
+        return vertexProperty.ifEmpty {
+            TinkerHelper.getProperties(vertex).getOrDefault(key, emptyList())
+        }
         //return isComputeKey(key) ? this.getValue(vertex, key) : (List) TinkerHelper.getProperties(vertex).getOrDefault(key, Collections.emptyList());
     }
 
-    public List<Property> getProperties(final TinkerVertex vertex) {
-        final List<Property> list = new ArrayList<>();
-        for (final List<VertexProperty> properties : TinkerHelper.getProperties(vertex).values()) {
-            list.addAll(properties);
+    fun getProperties(vertex: TinkerVertex?): List<Property<*>> {
+        val list: MutableList<Property<*>> = ArrayList()
+        for (properties in TinkerHelper.getProperties(vertex).values) {
+            list.addAll(properties!!)
         }
-        for (final List<VertexProperty<?>> properties : this.computeProperties.getOrDefault(vertex, Collections.emptyMap()).values()) {
-            list.addAll(properties);
+        for (properties in computeProperties.getOrDefault(vertex, emptyMap<String, List<VertexProperty<*>>>()).values) {
+            list.addAll(properties)
         }
-        return list;
+        return list
     }
 
-    public void removeProperty(final TinkerVertex vertex, final String key, final VertexProperty property) {
+    fun removeProperty(vertex: TinkerVertex, key: String, property: VertexProperty<*>) {
         if (isComputeKey(key)) {
-            this.removeValue(vertex, key, property);
+            removeValue(vertex, key, property)
         } else {
-            throw GraphComputer.Exceptions.providedKeyIsNotAnElementComputeKey(key);
+            throw GraphComputer.Exceptions.providedKeyIsNotAnElementComputeKey(key)
         }
     }
 
-    public boolean legalVertex(final Vertex vertex) {
-        return !this.graphFilter.hasVertexFilter() || this.legalVertices.contains(vertex.id());
+    fun legalVertex(vertex: Vertex): Boolean {
+        return !graphFilter.hasVertexFilter() || legalVertices.contains(vertex.id())
     }
 
-    public boolean legalEdge(final Vertex vertex, final Edge edge) {
-        return !this.graphFilter.hasEdgeFilter() || this.legalEdges.get(vertex.id()).contains(edge.id());
+    fun legalEdge(vertex: Vertex, edge: Edge): Boolean {
+        return !graphFilter.hasEdgeFilter() || legalEdges[vertex.id()]!!.contains(edge.id())
     }
 
-    protected void complete() {
+    fun complete() {
         // remove all transient properties from the vertices
-        for (final VertexComputeKey computeKey : this.computeKeys.values()) {
-            if (computeKey.isTransient()) {
-                for (final Map<String, List<VertexProperty<?>>> properties : this.computeProperties.values()) {
-                    properties.remove(computeKey.getKey());
+        for (computeKey in computeKeys.values) {
+            if (computeKey.isTransient) {
+                for (properties in computeProperties.values) {
+                    properties.remove(computeKey.key)
                 }
             }
         }
     }
 
     //////////////////////
-
-    public Graph processResultGraphPersist(final GraphComputer.ResultGraph resultGraph,
-                                           final GraphComputer.Persist persist) {
-        if (GraphComputer.Persist.NOTHING == persist) {
-            if (GraphComputer.ResultGraph.ORIGINAL == resultGraph)
-                return this.graph;
-            else
-                return EmptyGraph.instance();
-        } else if (GraphComputer.Persist.VERTEX_PROPERTIES == persist) {
-            if (GraphComputer.ResultGraph.ORIGINAL == resultGraph) {
-                this.addPropertiesToOriginalGraph();
-                return this.graph;
+    fun processResultGraphPersist(
+        resultGraph: ResultGraph,
+        persist: Persist
+    ): Graph {
+        return if (Persist.NOTHING == persist) {
+            if (ResultGraph.ORIGINAL == resultGraph) graph else EmptyGraph.instance()
+        } else if (Persist.VERTEX_PROPERTIES == persist) {
+            if (ResultGraph.ORIGINAL == resultGraph) {
+                addPropertiesToOriginalGraph()
+                graph
             } else {
-                final TinkerCat newGraph = TinkerCat.open();
-                this.graph.vertices().forEachRemaining(vertex -> {
-                    final Vertex newVertex = newGraph.addVertex(T.id, vertex.id(), T.label, vertex.label());
-                    vertex.properties().forEachRemaining(vertexProperty -> {
-                        final VertexProperty<?> newVertexProperty = newVertex.property(VertexProperty.Cardinality.list, vertexProperty.key(), vertexProperty.value(), T.id, vertexProperty.id());
-                        vertexProperty.properties().forEachRemaining(property -> {
-                            newVertexProperty.property(property.key(), property.value());
-                        });
-                    });
-                });
-                return newGraph;
+                val newGraph = TinkerCat.open()
+                graph.vertices().forEachRemaining { vertex: Vertex ->
+                    val newVertex = newGraph.addVertex(T.id, vertex.id(), T.label, vertex.label())
+                    vertex.properties<Any?>().forEachRemaining { vertexProperty: VertexProperty<Any?> ->
+                        val newVertexProperty: VertexProperty<*> = newVertex.property(
+                            VertexProperty.Cardinality.list,
+                            vertexProperty.key(),
+                            vertexProperty.value(),
+                            T.id,
+                            vertexProperty.id()
+                        )
+                        vertexProperty.properties<Any?>().forEachRemaining { property: Property<Any?> ->
+                            newVertexProperty.property(
+                                property.key(),
+                                property.value()
+                            )
+                        }
+                    }
+                }
+                newGraph
             }
         } else {  // Persist.EDGES
-            if (GraphComputer.ResultGraph.ORIGINAL == resultGraph) {
-                this.addPropertiesToOriginalGraph();
-                return this.graph;
+            if (ResultGraph.ORIGINAL == resultGraph) {
+                addPropertiesToOriginalGraph()
+                graph
             } else {
-                final TinkerCat newGraph = TinkerCat.open();
-                this.graph.vertices().forEachRemaining(vertex -> {
-                    final Vertex newVertex = newGraph.addVertex(T.id, vertex.id(), T.label, vertex.label());
-                    vertex.properties().forEachRemaining(vertexProperty -> {
-                        final VertexProperty<?> newVertexProperty = newVertex.property(VertexProperty.Cardinality.list, vertexProperty.key(), vertexProperty.value(), T.id, vertexProperty.id());
-                        vertexProperty.properties().forEachRemaining(property -> {
-                            newVertexProperty.property(property.key(), property.value());
-                        });
-                    });
-                });
-                this.graph.edges().forEachRemaining(edge -> {
-                    final Vertex outVertex = newGraph.vertices(edge.outVertex().id()).next();
-                    final Vertex inVertex = newGraph.vertices(edge.inVertex().id()).next();
-                    final Edge newEdge = outVertex.addEdge(edge.label(), inVertex, T.id, edge.id());
-                    edge.properties().forEachRemaining(property -> newEdge.property(property.key(), property.value()));
-                });
-                return newGraph;
+                val newGraph = TinkerCat.open()
+                graph.vertices().forEachRemaining { vertex: Vertex ->
+                    val newVertex = newGraph.addVertex(T.id, vertex.id(), T.label, vertex.label())
+                    vertex.properties<Any?>().forEachRemaining { vertexProperty: VertexProperty<Any?> ->
+                        val newVertexProperty: VertexProperty<*> = newVertex.property(
+                            VertexProperty.Cardinality.list,
+                            vertexProperty.key(),
+                            vertexProperty.value(),
+                            T.id,
+                            vertexProperty.id()
+                        )
+                        vertexProperty.properties<Any?>().forEachRemaining { property: Property<Any?> ->
+                            newVertexProperty.property(
+                                property.key(),
+                                property.value()
+                            )
+                        }
+                    }
+                }
+                graph.edges().forEachRemaining { edge: Edge ->
+                    val outVertex = newGraph.vertices(edge.outVertex().id()).next()
+                    val inVertex = newGraph.vertices(edge.inVertex().id()).next()
+                    val newEdge = outVertex.addEdge(edge.label(), inVertex, T.id, edge.id())
+                    edge.properties<Any>().forEachRemaining { property: Property<Any> ->
+                        newEdge.property(
+                            property.key(),
+                            property.value()
+                        )
+                    }
+                }
+                newGraph
             }
         }
     }
 
-    private void addPropertiesToOriginalGraph() {
-        TinkerHelper.dropGraphComputerView(this.graph);
-        this.computeProperties.forEach((element, properties) -> {
-            properties.forEach((key, vertexProperties) -> {
-                vertexProperties.forEach(vertexProperty -> {
-                    final VertexProperty<?> newVertexProperty = ((Vertex) element).property(VertexProperty.Cardinality.list, vertexProperty.key(), vertexProperty.value(), T.id, vertexProperty.id());
-                    vertexProperty.properties().forEachRemaining(property -> {
-                        newVertexProperty.property(property.key(), property.value());
-                    });
-                });
-            });
-        });
-        this.computeProperties.clear();
+    private fun addPropertiesToOriginalGraph() {
+        TinkerHelper.dropGraphComputerView(graph)
+        computeProperties.forEach { (element: Element, properties: Map<String, MutableList<VertexProperty<*>>>) ->
+            properties.forEach { (key: String?, vertexProperties: List<VertexProperty<*>>) ->
+                vertexProperties.forEach(
+                    Consumer { vertexProperty: VertexProperty<*> ->
+                        val newVertexProperty: VertexProperty<*> = (element as Vertex).property(
+                            VertexProperty.Cardinality.list,
+                            vertexProperty.key(),
+                            vertexProperty.value(),
+                            T.id,
+                            vertexProperty.id()
+                        )
+                        vertexProperty.properties<Any?>().forEachRemaining { property: Property<Any?> ->
+                            newVertexProperty.property(
+                                property.key(),
+                                property.value()
+                            )
+                        }
+                    })
+            }
+        }
+        computeProperties.clear()
     }
 
     //////////////////////
-
-    private boolean isComputeKey(final String key) {
-        return this.computeKeys.containsKey(key);
+    private fun isComputeKey(key: String): Boolean {
+        return computeKeys.containsKey(key)
     }
 
-    private void addValue(final Vertex vertex, final String key, final VertexProperty property) {
-        final Map<String, List<VertexProperty<?>>> elementProperties = this.computeProperties.computeIfAbsent(vertex, k -> new HashMap<>());
-        elementProperties.compute(key, (k, v) -> {
-            if (null == v) v = new ArrayList<>();
-            v.add(property);
-            return v;
-        });
+    private fun addValue(vertex: Vertex, key: String, property: VertexProperty<*>) {
+        val elementProperties = computeProperties.computeIfAbsent(
+            vertex,
+            Function<Element, Map<String, MutableList<VertexProperty<*>>>> { HashMap<String, List<VertexProperty<*>>>() })
+        elementProperties.compute(key, BiFunction { _: String?, v: MutableList<VertexProperty<*>>? ->
+            if (null == v) v = ArrayList()
+            v.add(property)
+            v
+        })
     }
 
-    private void removeValue(final Vertex vertex, final String key, final VertexProperty property) {
-        this.computeProperties.<List<Map<String, VertexProperty<?>>>>getOrDefault(vertex, Collections.emptyMap()).get(key).remove(property);
+    private fun removeValue(vertex: Vertex, key: String, property: VertexProperty<*>) {
+        computeProperties.getOrDefault(
+            vertex,
+            emptyMap()
+        )[key]!!.remove(property)
     }
 
-    private List<VertexProperty<?>> getValue(final Vertex vertex, final String key) {
-        return this.computeProperties.getOrDefault(vertex, Collections.emptyMap()).getOrDefault(key, Collections.emptyList());
+    private fun getValue(vertex: Vertex, key: String): List<VertexProperty<*>> {
+        return computeProperties.getOrDefault(vertex, emptyMap<String, List<VertexProperty<*>>>())[key] ?: emptyList()
     }
 }

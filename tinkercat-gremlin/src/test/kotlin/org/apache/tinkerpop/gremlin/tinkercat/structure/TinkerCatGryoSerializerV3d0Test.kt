@@ -16,65 +16,55 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.tinkerpop.gremlin.tinkercat.structure;
+package org.apache.tinkerpop.gremlin.tinkercat.structure
 
-import org.apache.tinkerpop.gremlin.structure.io.gryo.GryoMapper;
-import org.apache.tinkerpop.shaded.kryo.Kryo;
-import org.apache.tinkerpop.shaded.kryo.Registration;
-import org.apache.tinkerpop.shaded.kryo.io.Input;
-import org.apache.tinkerpop.shaded.kryo.io.Output;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.mockito.Mock;
-import org.mockito.runners.MockitoJUnitRunner;
-
-import java.util.Arrays;
-
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyInt;
-import static org.mockito.Mockito.atLeastOnce;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import org.apache.tinkerpop.shaded.kryo.Kryo
+import org.junit.Before
+import org.junit.Test
+import org.mockito.runners.MockitoJUnitRunner
+import java.lang.Exception
 
 /**
- * Unit tests for {@link TinkerIoRegistryV3d0.TinkerCatGryoSerializer}.
+ * Unit tests for [TinkerIoRegistryV3d0.TinkerCatGryoSerializer].
  */
-@RunWith(MockitoJUnitRunner.class)
-public class TinkerCatGryoSerializerV3d0Test {
+@RunWith(MockitoJUnitRunner::class)
+class TinkerCatGryoSerializerV3d0Test {
+    @Mock
+    private val kryo: Kryo? = null
 
     @Mock
-    private Kryo kryo;
-    @Mock
-    private Registration registration;
-    @Mock
-    private Output output;
-    @Mock
-    private Input input;
+    private val registration: Registration? = null
 
-    private TinkerCat graph = TinkerCat.open();
-    private TinkerIoRegistryV3d0.TinkerCatGryoSerializer serializer = new TinkerIoRegistryV3d0.TinkerCatGryoSerializer();
+    @Mock
+    private val output: Output? = null
 
+    @Mock
+    private val input: Input? = null
+    private val graph = TinkerCat.open()
+    private val serializer = TinkerIoRegistryV3d0.TinkerCatGryoSerializer()
     @Before
-    public void setUp() throws Exception {
-        when(kryo.getRegistration((Class) any())).thenReturn(registration);
-        when(input.readBytes(anyInt())).thenReturn(Arrays.copyOf(GryoMapper.HEADER, 100));
+    @Throws(Exception::class)
+    fun setUp() {
+        Mockito.`when`(kryo.getRegistration(ArgumentMatchers.any<Any>() as Class<*>)).thenReturn(registration)
+        Mockito.`when`(input.readBytes(ArgumentMatchers.anyInt())).thenReturn(Arrays.copyOf(GryoMapper.HEADER, 100))
     }
 
     @Test
-    public void shouldVerifyKryoUsedForWrite() throws Exception {
-        serializer.write(kryo, output, graph);
-        verify(kryo, atLeastOnce()).getRegistration((Class) any());
+    @Throws(Exception::class)
+    fun shouldVerifyKryoUsedForWrite() {
+        serializer.write(kryo, output, graph)
+        Mockito.verify<Any>(kryo, Mockito.atLeastOnce()).getRegistration(ArgumentMatchers.any<Any>() as Class<*>)
     }
 
     @Test
-    public void shouldVerifyKryoUsedForRead() throws Exception {
+    @Throws(Exception::class)
+    fun shouldVerifyKryoUsedForRead() {
         // Not possible to mock an entire deserialization so just verify the same kryo instances are being used
         try {
-            serializer.read(kryo, input, TinkerCat.class);
-        } catch (RuntimeException ex) {
-            verify(kryo, atLeastOnce()).readObject(any(), any());
-            verify(kryo, atLeastOnce()).readClassAndObject(any());
+            serializer.read(kryo, input, TinkerCat::class.java)
+        } catch (ex: RuntimeException) {
+            Mockito.verify<Any>(kryo, Mockito.atLeastOnce()).readObject(ArgumentMatchers.any(), ArgumentMatchers.any())
+            Mockito.verify<Any>(kryo, Mockito.atLeastOnce()).readClassAndObject(ArgumentMatchers.any())
         }
     }
 }

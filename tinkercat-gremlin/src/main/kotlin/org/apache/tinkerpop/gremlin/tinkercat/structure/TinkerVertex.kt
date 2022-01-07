@@ -16,180 +16,181 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.tinkerpop.gremlin.tinkercat.structure;
+package org.apache.tinkerpop.gremlin.tinkercat.structure
 
-import org.apache.tinkerpop.gremlin.structure.Direction;
-import org.apache.tinkerpop.gremlin.structure.Edge;
-import org.apache.tinkerpop.gremlin.structure.Graph;
-import org.apache.tinkerpop.gremlin.structure.Vertex;
-import org.apache.tinkerpop.gremlin.structure.VertexProperty;
-import org.apache.tinkerpop.gremlin.structure.util.ElementHelper;
-import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
-import org.apache.tinkerpop.gremlin.util.iterator.IteratorUtils;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
+import org.apache.tinkerpop.gremlin.structure.*
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat.features
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerHelper.inComputerMode
+import org.apache.tinkerpop.gremlin.tinkercat.process.computer.TinkerCatComputerView.getProperty
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerElement.Companion.elementAlreadyRemoved
+import org.apache.tinkerpop.gremlin.tinkercat.process.computer.TinkerCatComputerView.addProperty
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat.IdManager.convert
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat.IdManager.getNextId
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerHelper.autoUpdateIndex
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerHelper.addEdge
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerHelper.removeElementIndex
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerHelper.getEdges
+import org.apache.tinkerpop.gremlin.tinkercat.process.computer.TinkerCatComputerView.legalEdge
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerHelper.getVertices
+import org.apache.tinkerpop.gremlin.tinkercat.process.computer.TinkerCatComputerView.getProperties
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat
+import org.apache.tinkerpop.gremlin.structure.util.ElementHelper
+import org.apache.tinkerpop.gremlin.structure.util.StringFactory
+import org.apache.tinkerpop.gremlin.util.iterator.IteratorUtils
+import java.util.*
+import java.util.stream.Collectors
 
 /**
  * @author Marko A. Rodriguez (http://markorodriguez.com)
  */
-public final class TinkerVertex extends TinkerElement implements Vertex {
+class TinkerVertex protected constructor(id: Any?, label: String?, private val graph: TinkerCat) : TinkerElement(
+    id!!, label!!
+), Vertex {
+    var properties: MutableMap<String, MutableList<VertexProperty<*>>>? = null
+    protected var outEdges: Map<String, Set<Edge>>? = null
+    protected var inEdges: Map<String, Set<Edge>>? = null
+    private val allowNullPropertyValues: Boolean
 
-    protected Map<String, List<VertexProperty>> properties;
-    protected Map<String, Set<Edge>> outEdges;
-    protected Map<String, Set<Edge>> inEdges;
-    private final TinkerCat graph;
-    private boolean allowNullPropertyValues;
-
-    protected TinkerVertex(final Object id, final String label, final TinkerCat graph) {
-        super(id, label);
-        this.graph = graph;
-        this.allowNullPropertyValues = graph.features().vertex().supportsNullPropertyValues();
+    init {
+        allowNullPropertyValues = graph.features().vertex().supportsNullPropertyValues()
     }
 
-    @Override
-    public Graph graph() {
-        return this.graph;
+    override fun graph(): Graph {
+        return graph
     }
 
-    @Override
-    public <V> VertexProperty<V> property(final String key) {
-        if (this.removed) return VertexProperty.empty();
-        if (TinkerHelper.inComputerMode(this.graph)) {
-            final List<VertexProperty> list = (List) this.graph.graphComputerView.getProperty(this, key);
-            if (list.size() == 0)
-                return VertexProperty.<V>empty();
-            else if (list.size() == 1)
-                return list.get(0);
-            else
-                throw Vertex.Exceptions.multiplePropertiesExistForProvidedKey(key);
+    override fun <V> property(key: String): VertexProperty<V> {
+        if (removed) return VertexProperty.empty()
+        return if (inComputerMode(graph)) {
+            val list: List<VertexProperty<*>> = graph.graphComputerView!!.getProperty(this, key)
+            if (list.size == 0) VertexProperty.empty() else if (list.size == 1) list[0] else throw Vertex.Exceptions.multiplePropertiesExistForProvidedKey(
+                key
+            )
         } else {
-            if (this.properties != null && this.properties.containsKey(key)) {
-                final List<VertexProperty> list = (List) this.properties.get(key);
-                if (list.size() > 1)
-                    throw Vertex.Exceptions.multiplePropertiesExistForProvidedKey(key);
-                else
-                    return list.get(0);
-            } else
-                return VertexProperty.<V>empty();
+            if (properties != null && properties!!.containsKey(key)) {
+                val list: List<VertexProperty<*>> = properties!![key] as List<*>
+                if (list.size > 1) throw Vertex.Exceptions.multiplePropertiesExistForProvidedKey(
+                    key
+                ) else list[0]
+            } else VertexProperty.empty()
         }
     }
 
-    @Override
-    public <V> VertexProperty<V> property(final VertexProperty.Cardinality cardinality, final String key, final V value, final Object... keyValues) {
-        if (this.removed) throw elementAlreadyRemoved(Vertex.class, id);
-        ElementHelper.legalPropertyKeyValueArray(keyValues);
-        ElementHelper.validateProperty(key, value);
+    override fun <V> property(
+        cardinality: VertexProperty.Cardinality,
+        key: String,
+        value: V,
+        vararg keyValues: Any
+    ): VertexProperty<V> {
+        if (removed) throw elementAlreadyRemoved(
+            Vertex::class.java, id
+        )
+        ElementHelper.legalPropertyKeyValueArray(*keyValues)
+        ElementHelper.validateProperty(key, value)
 
         // if we don't allow null property values and the value is null then the key can be removed but only if the
         // cardinality is single. if it is list/set then we can just ignore the null.
         if (!allowNullPropertyValues && null == value) {
-            final VertexProperty.Cardinality card = null == cardinality ? graph.features().vertex().getCardinality(key) : cardinality;
-            if (VertexProperty.Cardinality.single == card)
-                properties(key).forEachRemaining(VertexProperty::remove);
-            return VertexProperty.empty();
+            val card = cardinality ?: graph.features().vertex().getCardinality(key)
+            if (VertexProperty.Cardinality.single == card) properties<Any?>(key).forEachRemaining { obj: VertexProperty<Any?> -> obj.remove() }
+            return VertexProperty.empty()
         }
-
-        final Optional<Object> optionalId = ElementHelper.getIdValue(keyValues);
-        final Optional<VertexProperty<V>> optionalVertexProperty = ElementHelper.stageVertexProperty(this, cardinality, key, value, keyValues);
-        if (optionalVertexProperty.isPresent()) return optionalVertexProperty.get();
-
-        if (TinkerHelper.inComputerMode(this.graph)) {
-            final VertexProperty<V> vertexProperty = (VertexProperty<V>) this.graph.graphComputerView.addProperty(this, key, value);
-            ElementHelper.attachProperties(vertexProperty, keyValues);
-            return vertexProperty;
+        val optionalId = ElementHelper.getIdValue(*keyValues)
+        val optionalVertexProperty = ElementHelper.stageVertexProperty(this, cardinality, key, value, *keyValues)
+        if (optionalVertexProperty.isPresent) return optionalVertexProperty.get()
+        return if (inComputerMode(graph)) {
+            val vertexProperty = graph.graphComputerView!!.addProperty(this, key, value) as VertexProperty<V>
+            ElementHelper.attachProperties(vertexProperty, *keyValues)
+            vertexProperty
         } else {
-            final Object idValue = optionalId.isPresent() ?
-                    graph.vertexPropertyIdManager.convert(optionalId.get()) :
-                    graph.vertexPropertyIdManager.getNextId(graph);
-
-            final VertexProperty<V> vertexProperty = new TinkerVertexProperty<V>(idValue, this, key, value);
-
-            if (null == this.properties) this.properties = new HashMap<>();
-            final List<VertexProperty> list = this.properties.getOrDefault(key, new ArrayList<>());
-            list.add(vertexProperty);
-            this.properties.put(key, list);
-            TinkerHelper.autoUpdateIndex(this, key, value, null);
-            ElementHelper.attachProperties(vertexProperty, keyValues);
-            return vertexProperty;
+            val idValue =
+                if (optionalId.isPresent) graph.vertexPropertyIdManager.convert(optionalId.get()) else graph.vertexPropertyIdManager.getNextId(
+                    graph
+                )
+            val vertexProperty: VertexProperty<V> = TinkerVertexProperty(idValue, this, key, value)
+            if (null == properties) properties = HashMap()
+            val list = properties!!.getOrDefault(key, ArrayList())
+            list.add(vertexProperty)
+            properties!![key] = list
+            autoUpdateIndex(this, key, value, null)
+            ElementHelper.attachProperties(vertexProperty, *keyValues)
+            vertexProperty
         }
     }
 
-    @Override
-    public Set<String> keys() {
-        if (null == this.properties) return Collections.emptySet();
-        return TinkerHelper.inComputerMode((TinkerCat) graph()) ?
-                Vertex.super.keys() :
-                this.properties.keySet();
+    override fun keys(): Set<String> {
+        if (null == properties) return emptySet()
+        return if (inComputerMode((graph() as TinkerCat))) super@Vertex.keys() else properties!!.keys
     }
 
-    @Override
-    public Edge addEdge(final String label, final Vertex vertex, final Object... keyValues) {
-        if (null == vertex) throw Graph.Exceptions.argumentCanNotBeNull("vertex");
-        if (this.removed) throw elementAlreadyRemoved(Vertex.class, this.id);
-        return TinkerHelper.addEdge(this.graph, this, (TinkerVertex) vertex, label, keyValues);
+    override fun addEdge(label: String, vertex: Vertex, vararg keyValues: Any): Edge {
+        if (null == vertex) throw Graph.Exceptions.argumentCanNotBeNull("vertex")
+        if (removed) throw elementAlreadyRemoved(
+            Vertex::class.java, id
+        )
+        return addEdge(graph, this, (vertex as TinkerVertex), label, *keyValues)
     }
 
-    @Override
-    public void remove() {
-        final List<Edge> edges = new ArrayList<>();
-        this.edges(Direction.BOTH).forEachRemaining(edges::add);
-        edges.stream().filter(edge -> !((TinkerEdge) edge).removed).forEach(Edge::remove);
-        this.properties = null;
-        TinkerHelper.removeElementIndex(this);
-        this.graph.vertices.remove(this.id);
-        this.removed = true;
+    override fun remove() {
+        val edges: MutableList<Edge> = ArrayList()
+        edges(Direction.BOTH).forEachRemaining { e: Edge -> edges.add(e) }
+        edges.stream().filter { edge: Edge -> !(edge as TinkerEdge).removed }
+            .forEach { obj: Edge -> obj.remove() }
+        properties = null
+        removeElementIndex(this)
+        graph.vertices.remove(id)
+        removed = true
     }
 
-    @Override
-    public String toString() {
-        return StringFactory.vertexString(this);
+    override fun toString(): String {
+        return StringFactory.vertexString(this)
     }
 
-    @Override
-    public Iterator<Edge> edges(final Direction direction, final String... edgeLabels) {
-        final Iterator<Edge> edgeIterator = (Iterator) TinkerHelper.getEdges(this, direction, edgeLabels);
-        return TinkerHelper.inComputerMode(this.graph) ?
-                IteratorUtils.filter(edgeIterator, edge -> this.graph.graphComputerView.legalEdge(this, edge)) :
-                edgeIterator;
+    override fun edges(direction: Direction, vararg edgeLabels: String): Iterator<Edge> {
+        val edgeIterator: Iterator<Edge> = getEdges(this, direction, *edgeLabels)
+        return if (inComputerMode(graph)) IteratorUtils.filter(edgeIterator) { edge: Edge? ->
+            graph.graphComputerView!!.legalEdge(
+                this,
+                edge!!
+            )
+        } else edgeIterator
     }
 
-    @Override
-    public Iterator<Vertex> vertices(final Direction direction, final String... edgeLabels) {
-        return TinkerHelper.inComputerMode(this.graph) ?
-                direction.equals(Direction.BOTH) ?
-                        IteratorUtils.concat(
-                                IteratorUtils.map(this.edges(Direction.OUT, edgeLabels), Edge::inVertex),
-                                IteratorUtils.map(this.edges(Direction.IN, edgeLabels), Edge::outVertex)) :
-                        IteratorUtils.map(this.edges(direction, edgeLabels), edge -> edge.vertices(direction.opposite()).next()) :
-                (Iterator) TinkerHelper.getVertices(this, direction, edgeLabels);
+    override fun vertices(direction: Direction, vararg edgeLabels: String): Iterator<Vertex> {
+        return if (inComputerMode(graph)) if (direction == Direction.BOTH) IteratorUtils.concat(
+            IteratorUtils.map(edges(Direction.OUT, *edgeLabels)) { obj: Edge -> obj.inVertex() },
+            IteratorUtils.map(
+                edges(
+                    Direction.IN,
+                    *edgeLabels
+                )
+            ) { obj: Edge -> obj.outVertex() }) else IteratorUtils.map(
+            edges(direction, *edgeLabels)
+        ) { edge: Edge -> edge.vertices(direction.opposite()).next() } else getVertices(this, direction, *edgeLabels)
     }
 
-    @Override
-    public <V> Iterator<VertexProperty<V>> properties(final String... propertyKeys) {
-        if (this.removed) return Collections.emptyIterator();
-        if (TinkerHelper.inComputerMode((TinkerCat) graph()))
-            return (Iterator) ((TinkerCat) graph()).graphComputerView.getProperties(TinkerVertex.this).stream().filter(p -> ElementHelper.keyExists(p.key(), propertyKeys)).iterator();
-        else {
-            if (null == this.properties) return Collections.emptyIterator();
-            if (propertyKeys.length == 1) {
-                final List<VertexProperty> properties = this.properties.getOrDefault(propertyKeys[0], Collections.emptyList());
-                if (properties.size() == 1) {
-                    return IteratorUtils.of(properties.get(0));
+    override fun <V> properties(vararg propertyKeys: String): Iterator<VertexProperty<V>> {
+        if (removed) return Collections.emptyIterator()
+        return if (inComputerMode((graph() as TinkerCat))) (graph() as TinkerCat).graphComputerView!!.getProperties(this@TinkerVertex)
+            .stream().filter { p: Property<*> -> ElementHelper.keyExists(p.key(), *propertyKeys) }
+            .iterator() as Iterator<*> else {
+            if (null == properties) return Collections.emptyIterator()
+            if (propertyKeys.size == 1) {
+                val properties = properties!!.getOrDefault(propertyKeys[0], emptyList())
+                if (properties.size == 1) {
+                    IteratorUtils.of<VertexProperty<V>>(properties[0])
                 } else if (properties.isEmpty()) {
-                    return Collections.emptyIterator();
+                    Collections.emptyIterator()
                 } else {
-                    return (Iterator) new ArrayList<>(properties).iterator();
+                    ArrayList(properties).iterator()
                 }
-            } else
-                return (Iterator) this.properties.entrySet().stream().filter(entry -> ElementHelper.keyExists(entry.getKey(), propertyKeys)).flatMap(entry -> entry.getValue().stream()).collect(Collectors.toList()).iterator();
+            } else properties!!.entries.stream().filter { (key): Map.Entry<String, List<VertexProperty<*>>> ->
+                ElementHelper.keyExists(
+                    key, *propertyKeys
+                )
+            }
+                .flatMap { (_, value): Map.Entry<String, List<VertexProperty<*>>> -> value.stream() }
+                .collect(Collectors.toList()).iterator()
         }
     }
 }

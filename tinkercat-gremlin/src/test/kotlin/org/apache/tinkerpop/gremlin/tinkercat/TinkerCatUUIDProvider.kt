@@ -16,40 +16,51 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.tinkerpop.gremlin.tinkercat
 
-package org.apache.tinkerpop.gremlin.tinkercat;
-
-import org.apache.tinkerpop.gremlin.LoadGraphWith;
-import org.apache.tinkerpop.gremlin.TestHelper;
-import org.apache.tinkerpop.gremlin.structure.Graph;
-import org.apache.tinkerpop.gremlin.structure.VertexProperty;
-import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat;
-
-import java.io.File;
-import java.util.HashMap;
-import java.util.Map;
+import org.apache.tinkerpop.gremlin.tinkercat.TinkerCatProvider.Companion.requiresListCardinalityAsDefault
+import org.apache.tinkerpop.gremlin.tinkercat.TinkerCatProvider.Companion.requiresPersistence
+import org.apache.tinkerpop.gremlin.tinkercat.TinkerCatProvider
+import org.apache.tinkerpop.gremlin.LoadGraphWith.GraphData
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat
+import org.apache.tinkerpop.gremlin.structure.VertexProperty
+import org.apache.tinkerpop.gremlin.TestHelper
+import org.apache.tinkerpop.gremlin.structure.Graph
+import java.util.HashMap
 
 /**
  * @author Marko A. Rodriguez (http://markorodriguez.com)
  */
-public class TinkerCatUUIDProvider extends TinkerCatProvider {
-
-    @Override
-    public Map<String, Object> getBaseConfiguration(final String graphName, final Class<?> test, final String testMethodName,
-                                                    final LoadGraphWith.GraphData loadGraphWith) {
-        final TinkerCat.DefaultIdManager idManager = TinkerCat.DefaultIdManager.UUID;
-        final String idMaker = idManager.name();
-        return new HashMap<String, Object>() {{
-            put(Graph.GRAPH, TinkerCat.class.getName());
-            put(TinkerCat.GREMLIN_TINKERGRAPH_VERTEX_ID_MANAGER, idMaker);
-            put(TinkerCat.GREMLIN_TINKERGRAPH_EDGE_ID_MANAGER, idMaker);
-            put(TinkerCat.GREMLIN_TINKERGRAPH_VERTEX_PROPERTY_ID_MANAGER, idMaker);
-            if (requiresListCardinalityAsDefault(loadGraphWith, test, testMethodName))
-                put(TinkerCat.GREMLIN_TINKERGRAPH_DEFAULT_VERTEX_PROPERTY_CARDINALITY, VertexProperty.Cardinality.list.name());
-            if (requiresPersistence(test, testMethodName)) {
-                put(TinkerCat.GREMLIN_TINKERGRAPH_GRAPH_FORMAT, "gryo");
-                put(TinkerCat.GREMLIN_TINKERGRAPH_GRAPH_LOCATION, TestHelper.makeTestDataFile(test, "temp", testMethodName + ".kryo"));
+class TinkerCatUUIDProvider : TinkerCatProvider() {
+    override fun getBaseConfiguration(
+        graphName: String, test: Class<*>?, testMethodName: String,
+        loadGraphWith: GraphData
+    ): Map<String, Any> {
+        val idManager = TinkerCat.DefaultIdManager.UUID
+        val idMaker = idManager.name
+        return object : HashMap<String?, Any?>() {
+            init {
+                put(Graph.GRAPH, TinkerCat::class.java.name)
+                put(TinkerCat.GREMLIN_TINKERGRAPH_VERTEX_ID_MANAGER, idMaker)
+                put(TinkerCat.GREMLIN_TINKERGRAPH_EDGE_ID_MANAGER, idMaker)
+                put(TinkerCat.GREMLIN_TINKERGRAPH_VERTEX_PROPERTY_ID_MANAGER, idMaker)
+                if (requiresListCardinalityAsDefault(
+                        loadGraphWith,
+                        test!!,
+                        testMethodName
+                    )
+                ) put(
+                    TinkerCat.GREMLIN_TINKERGRAPH_DEFAULT_VERTEX_PROPERTY_CARDINALITY,
+                    VertexProperty.Cardinality.list.name
+                )
+                if (requiresPersistence(test, testMethodName)) {
+                    put(TinkerCat.GREMLIN_TINKERGRAPH_GRAPH_FORMAT, "gryo")
+                    put(
+                        TinkerCat.GREMLIN_TINKERGRAPH_GRAPH_LOCATION,
+                        TestHelper.makeTestDataFile(test, "temp", "$testMethodName.kryo")
+                    )
+                }
             }
-        }};
+        }
     }
 }

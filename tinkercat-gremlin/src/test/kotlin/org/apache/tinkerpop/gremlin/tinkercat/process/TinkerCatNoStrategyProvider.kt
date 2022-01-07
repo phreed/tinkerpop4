@@ -16,48 +16,54 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.tinkerpop.gremlin.tinkercat.process;
+package org.apache.tinkerpop.gremlin.tinkercat.process
 
-import org.apache.tinkerpop.gremlin.GraphProvider;
-import org.apache.tinkerpop.gremlin.process.traversal.TraversalSource;
-import org.apache.tinkerpop.gremlin.process.traversal.TraversalStrategies;
-import org.apache.tinkerpop.gremlin.process.traversal.TraversalStrategy;
-import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
-import org.apache.tinkerpop.gremlin.process.traversal.strategy.decoration.ConnectiveStrategy;
-import org.apache.tinkerpop.gremlin.process.traversal.strategy.decoration.SideEffectStrategy;
-import org.apache.tinkerpop.gremlin.process.traversal.strategy.finalization.ProfileStrategy;
-import org.apache.tinkerpop.gremlin.process.traversal.strategy.optimization.ProductiveByStrategy;
-import org.apache.tinkerpop.gremlin.structure.Graph;
-import org.apache.tinkerpop.gremlin.tinkercat.TinkerCatProvider;
-import org.apache.tinkerpop.gremlin.tinkercat.process.traversal.strategy.optimization.TinkerCatStepStrategy;
-import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat;
-
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.List;
-import java.util.stream.Collectors;
+import org.apache.tinkerpop.gremlin.tinkercat.TinkerCatProvider
+import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource
+import org.apache.tinkerpop.gremlin.process.traversal.TraversalStrategies
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat
+import org.apache.tinkerpop.gremlin.process.traversal.TraversalStrategy
+import org.apache.tinkerpop.gremlin.tinkercat.process.TinkerCatNoStrategyProvider
+import java.util.Arrays
+import org.apache.tinkerpop.gremlin.process.traversal.strategy.AbstractTraversalStrategy
+import org.apache.tinkerpop.gremlin.tinkercat.process.traversal.strategy.optimization.TinkerCatStepStrategy
+import org.apache.tinkerpop.gremlin.process.traversal.strategy.finalization.ProfileStrategy
+import org.apache.tinkerpop.gremlin.process.traversal.strategy.optimization.ProductiveByStrategy
+import org.apache.tinkerpop.gremlin.process.traversal.strategy.decoration.ConnectiveStrategy
+import org.apache.tinkerpop.gremlin.process.traversal.strategy.decoration.SideEffectStrategy
+import org.apache.tinkerpop.gremlin.structure.Graph
+import java.util.HashSet
+import java.util.function.Predicate
+import java.util.stream.Collectors
 
 /**
- * A {@link GraphProvider} that constructs a {@link TraversalSource} with no default strategies applied.  This allows
+ * A [GraphProvider] that constructs a [TraversalSource] with no default strategies applied.  This allows
  * the process tests to be executed without strategies applied.
  *
  * @author Stephen Mallette (http://stephen.genoprime.com)
  */
-public class TinkerCatNoStrategyProvider extends TinkerCatProvider {
+class TinkerCatNoStrategyProvider : TinkerCatProvider() {
+    override fun traversal(graph: Graph?): GraphTraversalSource? {
+        val toRemove = TraversalStrategies.GlobalCache.getStrategies(TinkerCat::class.java).toList().stream()
+            .map { obj: TraversalStrategy<*>? -> obj!!.javaClass }
+            .filter(Predicate<Class<TraversalStrategy<*>?>?> { clazz: Class<TraversalStrategy<*>?>? ->
+                !REQUIRED_STRATEGIES!!.contains(
+                    clazz
+                )
+            })
+            .collect(Collectors.toList())
+        return graph!!.traversal().withoutStrategies(*toRemove!!.toTypedArray())
+    }
 
-    private static final HashSet<Class<? extends TraversalStrategy>> REQUIRED_STRATEGIES = new HashSet<>(Arrays.asList(
-            TinkerCatStepStrategy.class,
-            ProfileStrategy.class,
-            ProductiveByStrategy.class, // this strategy is required to maintain 3.5.x null behaviors defined in tests
-            ConnectiveStrategy.class,
-            SideEffectStrategy.class));
-
-    @Override
-    public GraphTraversalSource traversal(final Graph graph) {
-        final List<Class> toRemove = TraversalStrategies.GlobalCache.getStrategies(TinkerCat.class).toList().stream()
-                .map(TraversalStrategy::getClass)
-                .filter(clazz -> !REQUIRED_STRATEGIES.contains(clazz))
-                .collect(Collectors.toList());
-        return graph.traversal().withoutStrategies(toRemove.toArray(new Class[toRemove.size()]));
+    companion object {
+        private val REQUIRED_STRATEGIES: HashSet<Class<out TraversalStrategy<*>?>?>? = HashSet(
+            Arrays.asList(
+                TinkerCatStepStrategy::class.java,
+                ProfileStrategy::class.java,
+                ProductiveByStrategy::class.java,  // this strategy is required to maintain 3.5.x null behaviors defined in tests
+                ConnectiveStrategy::class.java,
+                SideEffectStrategy::class.java
+            )
+        )
     }
 }

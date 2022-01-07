@@ -16,60 +16,57 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.tinkerpop.gremlin.tinkercat.process.computer;
+package org.apache.tinkerpop.gremlin.tinkercat.process.computer
 
-import org.apache.tinkerpop.gremlin.process.computer.KeyValue;
-import org.apache.tinkerpop.gremlin.process.computer.MapReduce;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Queue;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import org.apache.tinkerpop.gremlin.process.computer.KeyValue
+import org.apache.tinkerpop.gremlin.process.computer.MapReduce.MapEmitter
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentLinkedQueue
+import org.apache.tinkerpop.gremlin.process.computer.MapReduce
+import java.util.*
+import java.util.function.Consumer
+import java.util.function.Function
 
 /**
  * @author Marko A. Rodriguez (http://markorodriguez.com)
  */
-public final class TinkerMapEmitter<K, V> implements MapReduce.MapEmitter<K, V> {
+class TinkerMapEmitter<K, V>(private val doReduce: Boolean) : MapEmitter<K, V> {
+    var reduceMap: MutableMap<K, Queue<V>>? = null
+    var mapQueue: Queue<KeyValue<K, V>>? = null
 
-    public Map<K, Queue<V>> reduceMap;
-    public Queue<KeyValue<K, V>> mapQueue;
-    private final boolean doReduce;
-
-    public TinkerMapEmitter(final boolean doReduce) {
-        this.doReduce = doReduce;
-        if (this.doReduce)
-            this.reduceMap = new ConcurrentHashMap<>();
-        else
-            this.mapQueue = new ConcurrentLinkedQueue<>();
+    init {
+        if (doReduce) reduceMap = ConcurrentHashMap() else mapQueue = ConcurrentLinkedQueue()
     }
 
-    @Override
-    public void emit(K key, V value) {
-        if (this.doReduce)
-            this.reduceMap.computeIfAbsent(key, k -> new ConcurrentLinkedQueue<>()).add(value);
-        else
-            this.mapQueue.add(new KeyValue<>(key, value));
+    override fun emit(key: K, value: V) {
+        if (doReduce) reduceMap!!.computeIfAbsent(key, Function<K, Queue<V?>> { k: K -> ConcurrentLinkedQueue() })
+            .add(value) else mapQueue!!.add(
+            KeyValue(key, value)
+        )
     }
 
-    protected void complete(final MapReduce<K, V, ?, ?, ?> mapReduce) {
-        if (!this.doReduce && mapReduce.getMapKeySort().isPresent()) {
-            final Comparator<K> comparator = mapReduce.getMapKeySort().get();
-            final List<KeyValue<K, V>> list = new ArrayList<>(this.mapQueue);
-            Collections.sort(list, Comparator.comparing(KeyValue::getKey, comparator));
-            this.mapQueue.clear();
-            this.mapQueue.addAll(list);
-        } else if (mapReduce.getMapKeySort().isPresent()) {
-            final Comparator<K> comparator = mapReduce.getMapKeySort().get();
-            final List<Map.Entry<K, Queue<V>>> list = new ArrayList<>();
-            list.addAll(this.reduceMap.entrySet());
-            Collections.sort(list, Comparator.comparing(Map.Entry::getKey, comparator));
-            this.reduceMap = new LinkedHashMap<>();
-            list.forEach(entry -> this.reduceMap.put(entry.getKey(), entry.getValue()));
+    protected fun complete(mapReduce: MapReduce<K, V, *, *, *>) {
+        if (!doReduce && mapReduce.mapKeySort.isPresent) {
+            val comparator = mapReduce.mapKeySort.get()
+            val list: List<KeyValue<K, V>> = ArrayList(
+                mapQueue
+            )
+            Collections.sort(list, Comparator.comparing(
+                { obj: KeyValue<K, V> -> obj.key }, comparator
+            )
+            )
+            mapQueue!!.clear()
+            mapQueue!!.addAll(list)
+        } else if (mapReduce.mapKeySort.isPresent) {
+            val comparator = mapReduce.mapKeySort.get()
+            val list: MutableList<Map.Entry<K, Queue<V>>> = ArrayList()
+            list.addAll(reduceMap!!.entries)
+            Collections.sort(list, Comparator.comparing(
+                Function<Map.Entry<K, Queue<V>>, K> { (key, value) -> java.util.Map.Entry.key }, comparator
+            )
+            )
+            reduceMap = LinkedHashMap()
+            list.forEach(Consumer { (key, value): Map.Entry<K, Queue<V>> -> reduceMap[key] = value })
         }
     }
 }

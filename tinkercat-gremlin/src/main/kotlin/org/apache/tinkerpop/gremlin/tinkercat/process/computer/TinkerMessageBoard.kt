@@ -16,31 +16,27 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.tinkerpop.gremlin.tinkercat.process.computer;
+package org.apache.tinkerpop.gremlin.tinkercat.process.computer
 
-import org.apache.tinkerpop.gremlin.process.computer.MessageScope;
-import org.apache.tinkerpop.gremlin.structure.Vertex;
-
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Queue;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import org.apache.tinkerpop.gremlin.process.computer.MessageScope
+import org.apache.tinkerpop.gremlin.structure.Vertex
+import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * @author Marko A. Rodriguez (http://markorodriguez.com)
  */
-final class TinkerMessageBoard<M> {
-
-    public Map<MessageScope, Map<Vertex,Queue<M>>> sendMessages = new ConcurrentHashMap<>();
-    public Map<MessageScope, Map<Vertex, Queue<M>>> receiveMessages = new ConcurrentHashMap<>();
-    public Set<MessageScope> previousMessageScopes = new HashSet<>();
-    public Set<MessageScope> currentMessageScopes = new HashSet<>();
-
-    public void completeIteration() {
-        this.receiveMessages = this.sendMessages;
-        this.sendMessages = new ConcurrentHashMap<>();
-        this.previousMessageScopes = this.currentMessageScopes;
-        this.currentMessageScopes = new HashSet<>();
+class TinkerMessageBoard<M> {
+    @JvmField
+    var sendMessages: Map<MessageScope, Map<Vertex, Queue<M>>> = ConcurrentHashMap()
+    @JvmField
+    var receiveMessages: Map<MessageScope, Map<Vertex, Queue<M>>> = ConcurrentHashMap()
+    var previousMessageScopes: Set<MessageScope> = HashSet()
+    var currentMessageScopes: Set<MessageScope> = HashSet()
+    fun completeIteration() {
+        receiveMessages = sendMessages
+        sendMessages = ConcurrentHashMap()
+        previousMessageScopes = currentMessageScopes
+        currentMessageScopes = HashSet()
     }
 }

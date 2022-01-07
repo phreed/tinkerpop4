@@ -16,53 +16,50 @@
  *  specific language governing permissions and limitations
  *  under the License.
  */
+package org.apache.tinkerpop.gremlin.tinkercat.structure.io.gryo
 
-package org.apache.tinkerpop.gremlin.tinkercat.structure.io.gryo;
-
-import org.apache.tinkerpop.gremlin.jsr223.JavaTranslator;
-import org.apache.tinkerpop.gremlin.process.traversal.Bytecode;
-import org.apache.tinkerpop.gremlin.process.traversal.Translator;
-import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
-import org.apache.tinkerpop.gremlin.process.traversal.TraversalSource;
-import org.apache.tinkerpop.gremlin.structure.io.gryo.GryoMapper;
-import org.apache.tinkerpop.gremlin.structure.io.gryo.GryoReader;
-import org.apache.tinkerpop.gremlin.structure.io.gryo.GryoWriter;
-
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
+import org.apache.tinkerpop.gremlin.process.traversal.TraversalSource
+import org.apache.tinkerpop.gremlin.jsr223.JavaTranslator
+import org.apache.tinkerpop.gremlin.process.traversal.Bytecode
+import org.apache.tinkerpop.gremlin.process.traversal.Translator.StepTranslator
+import org.apache.tinkerpop.gremlin.process.traversal.Traversal
+import org.apache.tinkerpop.gremlin.structure.io.gryo.GryoMapper
+import org.apache.tinkerpop.gremlin.structure.io.gryo.GryoWriter
+import org.apache.tinkerpop.gremlin.structure.io.gryo.GryoReader
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.lang.Exception
+import java.lang.IllegalStateException
 
 /**
  * @author Marko A. Rodriguez (http://markorodriguez.com)
  */
-final class GryoTranslator<S extends TraversalSource, T extends Traversal.Admin<?, ?>> implements Translator.StepTranslator<S, T> {
-
-    private final JavaTranslator<S, T> wrappedTranslator;
-    private final GryoMapper mapper = GryoMapper.build().create();
-    private final GryoWriter writer = GryoWriter.build().mapper(mapper).create();
-    private final GryoReader reader = GryoReader.build().mapper(mapper).create();
-
-    public GryoTranslator(final JavaTranslator<S, T> wrappedTranslator) {
-        this.wrappedTranslator = wrappedTranslator;
+internal class GryoTranslator<S : TraversalSource?, T : Traversal.Admin<*, *>?>(
+    private val wrappedTranslator: JavaTranslator<S, T>
+) : StepTranslator<S, T> {
+    private val mapper = GryoMapper.build().create()
+    private val writer = GryoWriter.build().mapper(mapper).create()
+    private val reader = GryoReader.build().mapper(mapper).create()
+    override fun getTraversalSource(): S {
+        return wrappedTranslator.traversalSource
     }
 
-    @Override
-    public S getTraversalSource() {
-        return this.wrappedTranslator.getTraversalSource();
-    }
-
-    @Override
-    public T translate(final Bytecode bytecode) {
-        try {
-            final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            this.writer.writeObject(outputStream, bytecode);
-            return this.wrappedTranslator.translate(this.reader.readObject(new ByteArrayInputStream(outputStream.toByteArray()), Bytecode.class));
-        } catch (final Exception e) {
-            throw new IllegalStateException(e.getMessage(), e);
+    override fun translate(bytecode: Bytecode): T {
+        return try {
+            val outputStream = ByteArrayOutputStream()
+            writer.writeObject(outputStream, bytecode)
+            wrappedTranslator.translate(
+                reader.readObject(
+                    ByteArrayInputStream(outputStream.toByteArray()),
+                    Bytecode::class.java
+                )
+            )
+        } catch (e: Exception) {
+            throw IllegalStateException(e.message, e)
         }
     }
 
-    @Override
-    public String getTargetLanguage() {
-        return this.wrappedTranslator.getTargetLanguage();
+    override fun getTargetLanguage(): String {
+        return wrappedTranslator.targetLanguage
     }
 }

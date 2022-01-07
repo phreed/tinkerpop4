@@ -16,153 +16,133 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.tinkerpop.gremlin.tinkercat.process.traversal.step.sideEffect;
+package org.apache.tinkerpop.gremlin.tinkercat.process.traversal.step.sideEffect
 
-import org.apache.tinkerpop.gremlin.process.traversal.Compare;
-import org.apache.tinkerpop.gremlin.process.traversal.P;
-import org.apache.tinkerpop.gremlin.process.traversal.step.HasContainerHolder;
-import org.apache.tinkerpop.gremlin.process.traversal.step.map.GraphStep;
-import org.apache.tinkerpop.gremlin.process.traversal.step.util.HasContainer;
-import org.apache.tinkerpop.gremlin.process.traversal.util.AndP;
-import org.apache.tinkerpop.gremlin.structure.Edge;
-import org.apache.tinkerpop.gremlin.structure.Element;
-import org.apache.tinkerpop.gremlin.structure.Vertex;
-import org.apache.tinkerpop.gremlin.structure.util.CloseableIterator;
-import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
-import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat;
-import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCatIterator;
-import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerHelper;
-import org.apache.tinkerpop.gremlin.util.iterator.IteratorUtils;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
+import org.apache.tinkerpop.gremlin.process.traversal.step.map.GraphStep
+import org.apache.tinkerpop.gremlin.process.traversal.step.HasContainerHolder
+import java.lang.AutoCloseable
+import org.apache.tinkerpop.gremlin.process.traversal.step.util.HasContainer
+import org.apache.tinkerpop.gremlin.process.traversal.Compare
+import org.apache.tinkerpop.gremlin.structure.util.StringFactory
+import org.apache.tinkerpop.gremlin.structure.util.CloseableIterator
+import org.apache.tinkerpop.gremlin.process.traversal.util.AndP
+import org.apache.tinkerpop.gremlin.structure.Edge
+import org.apache.tinkerpop.gremlin.structure.Element
+import org.apache.tinkerpop.gremlin.structure.Vertex
+import org.apache.tinkerpop.gremlin.tinkercat.structure.*
+import org.apache.tinkerpop.gremlin.util.iterator.IteratorUtils
+import java.util.*
+import java.util.function.Consumer
+import java.util.stream.Collectors
 
 /**
  * @author Marko A. Rodriguez (http://markorodriguez.com)
  * @author Pieter Martin
  */
-public final class TinkerCatStep<S, E extends Element> extends GraphStep<S, E> implements HasContainerHolder, AutoCloseable {
+class TinkerCatStep<S, E : Element?>(originalGraphStep: GraphStep<S, E>) : GraphStep<S, E>(
+    originalGraphStep.getTraversal<Any, Any>(),
+    originalGraphStep.returnClass,
+    originalGraphStep.isStartStep,
+    *originalGraphStep.ids
+), HasContainerHolder, AutoCloseable {
+    private val hasContainers: MutableList<HasContainer> = ArrayList()
 
-    private final List<HasContainer> hasContainers = new ArrayList<>();
     /**
      * List of iterators opened by this step.
      */
-    private final List<Iterator> iterators = new ArrayList<>();
+    private val iterators: MutableList<Iterator<*>> = ArrayList()
 
-    public TinkerCatStep(final GraphStep<S, E> originalGraphStep) {
-        super(originalGraphStep.getTraversal(), originalGraphStep.getReturnClass(), originalGraphStep.isStartStep(), originalGraphStep.getIds());
-        originalGraphStep.getLabels().forEach(this::addLabel);
+    init {
+        originalGraphStep.labels.forEach(Consumer { label: String? -> addLabel(label) })
 
         // we used to only setIteratorSupplier() if there were no ids OR the first id was instanceof Element,
         // but that allowed the filter in g.V(v).has('k','v') to be ignored.  this created problems for
         // PartitionStrategy which wants to prevent someone from passing "v" from one TraversalSource to
         // another TraversalSource using a different partition
-        this.setIteratorSupplier(() -> (Iterator<E>) (Vertex.class.isAssignableFrom(this.returnClass) ? this.vertices() : this.edges()));
+        setIteratorSupplier { (if (Vertex::class.java.isAssignableFrom(returnClass)) vertices() else edges()) as Iterator<E> }
     }
 
-    private Iterator<? extends Edge> edges() {
-        final TinkerCat graph = (TinkerCat) this.getTraversal().getGraph().get();
-        final HasContainer indexedContainer = getIndexKey(Edge.class);
-        Iterator<Edge> iterator;
+    private fun edges(): Iterator<Edge> {
+        val graph = getTraversal<Any, Any>().graph.get() as TinkerCat
+        val indexedContainer = getIndexKey(Edge::class.java)
+        val iterator: Iterator<Edge>
         // ids are present, filter on them first
-        if (null == this.ids)
-            iterator = Collections.emptyIterator();
-        else if (this.ids.length > 0)
-            iterator = this.iteratorList(graph.edges(this.ids));
-        else
-            iterator = null == indexedContainer ?
-                    this.iteratorList(graph.edges()) :
-                    TinkerHelper.queryEdgeIndex(graph, indexedContainer.getKey(), indexedContainer.getPredicate().getValue()).stream()
-                                .filter(edge -> HasContainer.testAll(edge, this.hasContainers))
-                                .collect(Collectors.<Edge>toList()).iterator();
-
-
-        iterators.add(iterator);
-
-        return iterator;
+        iterator =
+            if (null == ids) Collections.emptyIterator() else if (ids.size > 0) iteratorList(graph.edges(*ids)) else if (null == indexedContainer) iteratorList(
+                graph.edges()
+            ) else TinkerHelper.queryEdgeIndex(graph, indexedContainer.key, indexedContainer.predicate.value).stream()
+                .filter { edge: TinkerEdge? -> HasContainer.testAll(edge, hasContainers) }
+                .collect(Collectors.toList<Edge>()).iterator()
+        iterators.add(iterator)
+        return iterator
     }
 
-    private Iterator<? extends Vertex> vertices() {
-        final TinkerCat graph = (TinkerCat) this.getTraversal().getGraph().get();
-        final HasContainer indexedContainer = getIndexKey(Vertex.class);
-        Iterator<? extends Vertex> iterator;
+    private fun vertices(): Iterator<Vertex> {
+        val graph = getTraversal<Any, Any>().graph.get() as TinkerCat
+        val indexedContainer = getIndexKey(Vertex::class.java)
+        val iterator: Iterator<Vertex>
         // ids are present, filter on them first
-        if (null == this.ids)
-            iterator = Collections.emptyIterator();
-        else if (this.ids.length > 0)
-            iterator = this.iteratorList(graph.vertices(this.ids));
-        else
-            iterator = (null == indexedContainer ?
-                    this.iteratorList(graph.vertices()) :
-                    IteratorUtils.filter(TinkerHelper.queryVertexIndex(graph, indexedContainer.getKey(), indexedContainer.getPredicate().getValue()).iterator(),
-                                         vertex -> HasContainer.testAll(vertex, this.hasContainers)));
-
-        iterators.add(iterator);
-
-        return iterator;
+        iterator =
+            if (null == ids) Collections.emptyIterator() else if (ids.size > 0) iteratorList(graph.vertices(*ids)) else if (null == indexedContainer) iteratorList(
+                graph.vertices()
+            ) else IteratorUtils.filter(
+                TinkerHelper.queryVertexIndex(graph, indexedContainer.key, indexedContainer.predicate.value).iterator()
+            ) { vertex: TinkerVertex? -> HasContainer.testAll(vertex, hasContainers) }
+        iterators.add(iterator)
+        return iterator
     }
 
-    private HasContainer getIndexKey(final Class<? extends Element> indexedClass) {
-        final Set<String> indexedKeys = ((TinkerCat) this.getTraversal().getGraph().get()).getIndexedKeys(indexedClass);
-
-        final Iterator<HasContainer> itty = IteratorUtils.filter(hasContainers.iterator(),
-                c -> c.getPredicate().getBiPredicate() == Compare.eq && indexedKeys.contains(c.getKey()));
-        return itty.hasNext() ? itty.next() : null;
-
+    private fun getIndexKey(indexedClass: Class<out Element>): HasContainer? {
+        val indexedKeys = (getTraversal<Any, Any>().graph.get() as TinkerCat).getIndexedKeys(indexedClass)
+        val itty = IteratorUtils.filter(
+            hasContainers.iterator()
+        ) { c: HasContainer -> c.predicate.biPredicate === Compare.eq && indexedKeys.contains(c.key) }
+        return if (itty.hasNext()) itty.next() else null
     }
 
-    @Override
-    public String toString() {
-        if (this.hasContainers.isEmpty())
-            return super.toString();
-        else
-            return (null == this.ids || 0 == this.ids.length) ?
-                    StringFactory.stepString(this, this.returnClass.getSimpleName().toLowerCase(), this.hasContainers) :
-                    StringFactory.stepString(this, this.returnClass.getSimpleName().toLowerCase(), Arrays.toString(this.ids), this.hasContainers);
+    override fun toString(): String {
+        return if (hasContainers.isEmpty()) super.toString() else if (null == ids || 0 == ids.size) StringFactory.stepString(
+            this,
+            returnClass.simpleName.lowercase(Locale.getDefault()),
+            hasContainers
+        ) else StringFactory.stepString(
+            this,
+            returnClass.simpleName.lowercase(Locale.getDefault()),
+            Arrays.toString(ids),
+            hasContainers
+        )
     }
 
-    private <E extends Element> Iterator<E> iteratorList(final Iterator<E> iterator) {
-        final List<E> list = new ArrayList<>();
+    private fun <E : Element?> iteratorList(iterator: Iterator<E>): Iterator<E> {
+        val list: MutableList<E> = ArrayList()
         while (iterator.hasNext()) {
-            final E e = iterator.next();
-            if (HasContainer.testAll(e, this.hasContainers))
-                list.add(e);
+            val e = iterator.next()
+            if (HasContainer.testAll(e, hasContainers)) list.add(e)
         }
 
         // close the old iterator to release resources since we are returning a new iterator (over list)
         // out of this function.
-        CloseableIterator.closeIterator(iterator);
-
-        return new TinkerCatIterator<>(list.iterator());
+        CloseableIterator.closeIterator(iterator)
+        return TinkerCatIterator(list.iterator())
     }
 
-    @Override
-    public List<HasContainer> getHasContainers() {
-        return Collections.unmodifiableList(this.hasContainers);
+    override fun getHasContainers(): List<HasContainer> {
+        return Collections.unmodifiableList(hasContainers)
     }
 
-    @Override
-    public void addHasContainer(final HasContainer hasContainer) {
-        if (hasContainer.getPredicate() instanceof AndP) {
-            for (final P<?> predicate : ((AndP<?>) hasContainer.getPredicate()).getPredicates()) {
-                this.addHasContainer(new HasContainer(hasContainer.getKey(), predicate));
+    override fun addHasContainer(hasContainer: HasContainer) {
+        if (hasContainer.predicate is AndP<*>) {
+            for (predicate in (hasContainer.predicate as AndP<*>).predicates) {
+                addHasContainer(HasContainer(hasContainer.key, predicate))
             }
-        } else
-            this.hasContainers.add(hasContainer);
+        } else hasContainers.add(hasContainer)
     }
 
-    @Override
-    public int hashCode() {
-        return super.hashCode() ^ this.hasContainers.hashCode();
+    override fun hashCode(): Int {
+        return super.hashCode() xor hasContainers.hashCode()
     }
 
-    @Override
-    public void close() {
-        iterators.forEach(CloseableIterator::closeIterator);
+    override fun close() {
+        iterators.forEach(Consumer { iterator: Iterator<*>? -> CloseableIterator.closeIterator(iterator) })
     }
 }

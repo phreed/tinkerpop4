@@ -16,199 +16,216 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.tinkerpop.gremlin.tinkercat.structure;
+package org.apache.tinkerpop.gremlin.tinkercat.structure
 
-import org.apache.tinkerpop.gremlin.process.computer.GraphFilter;
-import org.apache.tinkerpop.gremlin.process.computer.VertexComputeKey;
-import org.apache.tinkerpop.gremlin.structure.Direction;
-import org.apache.tinkerpop.gremlin.structure.Edge;
-import org.apache.tinkerpop.gremlin.structure.Graph;
-import org.apache.tinkerpop.gremlin.structure.Vertex;
-import org.apache.tinkerpop.gremlin.structure.VertexProperty;
-import org.apache.tinkerpop.gremlin.structure.util.ElementHelper;
-import org.apache.tinkerpop.gremlin.tinkercat.process.computer.TinkerCatComputerView;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.stream.Stream;
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat.IdManager.convert
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat.IdManager.getNextId
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerEdge.graph
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat
+import org.apache.tinkerpop.gremlin.structure.util.ElementHelper
+import org.apache.tinkerpop.gremlin.process.computer.GraphFilter
+import org.apache.tinkerpop.gremlin.process.computer.VertexComputeKey
+import org.apache.tinkerpop.gremlin.structure.*
+import org.apache.tinkerpop.gremlin.tinkercat.process.computer.TinkerCatComputerView
+import java.util.*
+import java.util.function.Consumer
+import java.util.stream.Stream
 
 /**
  * @author Marko A. Rodriguez (http://markorodriguez.com)
  */
-public final class TinkerHelper {
-
-    private TinkerHelper() {
-    }
-
-    protected static Edge addEdge(final TinkerCat graph, final TinkerVertex outVertex, final TinkerVertex inVertex, final String label, final Object... keyValues) {
-        ElementHelper.validateLabel(label);
-        ElementHelper.legalPropertyKeyValueArray(keyValues);
-
-        Object idValue = graph.edgeIdManager.convert(ElementHelper.getIdValue(keyValues).orElse(null));
-
-        final Edge edge;
+object TinkerHelper {
+    @JvmStatic
+    fun addEdge(
+        graph: TinkerCat,
+        outVertex: TinkerVertex,
+        inVertex: TinkerVertex,
+        label: String?,
+        vararg keyValues: Any?
+    ): Edge {
+        ElementHelper.validateLabel(label)
+        ElementHelper.legalPropertyKeyValueArray(*keyValues)
+        var idValue = graph.edgeIdManager.convert(ElementHelper.getIdValue(*keyValues).orElse(null))
+        val edge: Edge
         if (null != idValue) {
-            if (graph.edges.containsKey(idValue))
-                throw Graph.Exceptions.edgeWithIdAlreadyExists(idValue);
+            if (graph.edges.containsKey(idValue)) throw Graph.Exceptions.edgeWithIdAlreadyExists(idValue)
         } else {
-            idValue = graph.edgeIdManager.getNextId(graph);
+            idValue = graph.edgeIdManager.getNextId(graph)
         }
-
-        edge = new TinkerEdge(idValue, outVertex, label, inVertex);
-        ElementHelper.attachProperties(edge, keyValues);
-        graph.edges.put(edge.id(), edge);
-        TinkerHelper.addOutEdge(outVertex, label, edge);
-        TinkerHelper.addInEdge(inVertex, label, edge);
-        return edge;
-
+        edge = TinkerEdge(idValue, outVertex, label, inVertex)
+        ElementHelper.attachProperties(edge, *keyValues)
+        graph.edges[edge.id()] = edge
+        addOutEdge(outVertex, label, edge)
+        addInEdge(inVertex, label, edge)
+        return edge
     }
 
-    protected static void addOutEdge(final TinkerVertex vertex, final String label, final Edge edge) {
-        if (null == vertex.outEdges) vertex.outEdges = new HashMap<>();
-        Set<Edge> edges = vertex.outEdges.get(label);
+    internal fun addOutEdge(vertex: TinkerVertex, label: String?, edge: Edge?) {
+        if (null == vertex.outEdges) vertex.outEdges = HashMap()
+        var edges = vertex.outEdges[label]
         if (null == edges) {
-            edges = new HashSet<>();
-            vertex.outEdges.put(label, edges);
+            edges = HashSet()
+            vertex.outEdges[label] = edges
         }
-        edges.add(edge);
+        edges.add(edge)
     }
 
-    protected static void addInEdge(final TinkerVertex vertex, final String label, final Edge edge) {
-        if (null == vertex.inEdges) vertex.inEdges = new HashMap<>();
-        Set<Edge> edges = vertex.inEdges.get(label);
+    internal fun addInEdge(vertex: TinkerVertex, label: String?, edge: Edge?) {
+        if (null == vertex.inEdges) vertex.inEdges = HashMap()
+        var edges = vertex.inEdges[label]
         if (null == edges) {
-            edges = new HashSet<>();
-            vertex.inEdges.put(label, edges);
+            edges = HashSet()
+            vertex.inEdges[label] = edges
         }
-        edges.add(edge);
+        edges.add(edge)
     }
 
-    public static List<TinkerVertex> queryVertexIndex(final TinkerCat graph, final String key, final Object value) {
-        return null == graph.vertexIndex ? Collections.emptyList() : graph.vertexIndex.get(key, value);
+    fun queryVertexIndex(graph: TinkerCat, key: String?, value: Any?): List<TinkerVertex> {
+        return if (null == graph.vertexIndex) emptyList() else graph.vertexIndex!![key, value]
     }
 
-    public static List<TinkerEdge> queryEdgeIndex(final TinkerCat graph, final String key, final Object value) {
-        return null == graph.edgeIndex ? Collections.emptyList() : graph.edgeIndex.get(key, value);
+    fun queryEdgeIndex(graph: TinkerCat, key: String?, value: Any?): List<TinkerEdge> {
+        return if (null == graph.edgeIndex) emptyList() else graph.edgeIndex!![key, value]
     }
 
-    public static boolean inComputerMode(final TinkerCat graph) {
-        return null != graph.graphComputerView;
+    @JvmStatic
+    fun inComputerMode(graph: TinkerCat): Boolean {
+        return null != graph.graphComputerView
     }
 
-    public static TinkerCatComputerView createGraphComputerView(final TinkerCat graph, final GraphFilter graphFilter, final Set<VertexComputeKey> computeKeys) {
-        return graph.graphComputerView = new TinkerCatComputerView(graph, graphFilter, computeKeys);
+    fun createGraphComputerView(
+        graph: TinkerCat,
+        graphFilter: GraphFilter?,
+        computeKeys: Set<VertexComputeKey?>?
+    ): TinkerCatComputerView {
+        return TinkerCatComputerView(graph, graphFilter!!, computeKeys).also { graph.graphComputerView = it }
     }
 
-    public static TinkerCatComputerView getGraphComputerView(final TinkerCat graph) {
-        return graph.graphComputerView;
+    fun getGraphComputerView(graph: TinkerCat): TinkerCatComputerView? {
+        return graph.graphComputerView
     }
 
-    public static void dropGraphComputerView(final TinkerCat graph) {
-        graph.graphComputerView = null;
+    fun dropGraphComputerView(graph: TinkerCat) {
+        graph.graphComputerView = null
     }
 
-    public static Map<String, List<VertexProperty>> getProperties(final TinkerVertex vertex) {
-        return null == vertex.properties ? Collections.emptyMap() : vertex.properties;
+    fun getProperties(vertex: TinkerVertex): Map<String, List<VertexProperty<*>>> {
+        return if (null == vertex.properties) emptyMap() else vertex.properties
     }
 
-    public static void autoUpdateIndex(final TinkerEdge edge, final String key, final Object newValue, final Object oldValue) {
-        final TinkerCat graph = (TinkerCat) edge.graph();
-        if (graph.edgeIndex != null)
-            graph.edgeIndex.autoUpdate(key, newValue, oldValue, edge);
+    fun autoUpdateIndex(edge: TinkerEdge, key: String?, newValue: Any?, oldValue: Any?) {
+        val graph = edge.graph() as TinkerCat
+        if (graph.edgeIndex != null) graph.edgeIndex!!.autoUpdate(key, newValue, oldValue, edge)
     }
 
-    public static void autoUpdateIndex(final TinkerVertex vertex, final String key, final Object newValue, final Object oldValue) {
-        final TinkerCat graph = (TinkerCat) vertex.graph();
-        if (graph.vertexIndex != null)
-            graph.vertexIndex.autoUpdate(key, newValue, oldValue, vertex);
+    @JvmStatic
+    fun autoUpdateIndex(vertex: TinkerVertex, key: String?, newValue: Any?, oldValue: Any?) {
+        val graph = vertex.graph() as TinkerCat
+        if (graph.vertexIndex != null) graph.vertexIndex!!.autoUpdate(key, newValue, oldValue, vertex)
     }
 
-    public static void removeElementIndex(final TinkerVertex vertex) {
-        final TinkerCat graph = (TinkerCat) vertex.graph();
-        if (graph.vertexIndex != null)
-            graph.vertexIndex.removeElement(vertex);
+    fun removeElementIndex(vertex: TinkerVertex) {
+        val graph = vertex.graph() as TinkerCat
+        if (graph.vertexIndex != null) graph.vertexIndex!!.removeElement(vertex)
     }
 
-    public static void removeElementIndex(final TinkerEdge edge) {
-        final TinkerCat graph = (TinkerCat) edge.graph();
-        if (graph.edgeIndex != null)
-            graph.edgeIndex.removeElement(edge);
+    fun removeElementIndex(edge: TinkerEdge) {
+        val graph = edge.graph() as TinkerCat
+        if (graph.edgeIndex != null) graph.edgeIndex!!.removeElement(edge)
     }
 
-    public static void removeIndex(final TinkerVertex vertex, final String key, final Object value) {
-        final TinkerCat graph = (TinkerCat) vertex.graph();
-        if (graph.vertexIndex != null)
-            graph.vertexIndex.remove(key, value, vertex);
+    fun removeIndex(vertex: TinkerVertex, key: String?, value: Any?) {
+        val graph = vertex.graph() as TinkerCat
+        if (graph.vertexIndex != null) graph.vertexIndex!!.remove(key, value, vertex)
     }
 
-    public static void removeIndex(final TinkerEdge edge, final String key, final Object value) {
-        final TinkerCat graph = (TinkerCat) edge.graph();
-        if (graph.edgeIndex != null)
-            graph.edgeIndex.remove(key, value, edge);
+    @JvmStatic
+    fun removeIndex(edge: TinkerEdge, key: String?, value: Any?) {
+        val graph = edge.graph() as TinkerCat
+        if (graph.edgeIndex != null) graph.edgeIndex!!.remove(key, value, edge)
     }
 
-    public static Iterator<TinkerEdge> getEdges(final TinkerVertex vertex, final Direction direction, final String... edgeLabels) {
-        final List<Edge> edges = new ArrayList<>();
-        if (direction.equals(Direction.OUT) || direction.equals(Direction.BOTH)) {
+    fun getEdges(vertex: TinkerVertex, direction: Direction, vararg edgeLabels: String?): Iterator<TinkerEdge> {
+        val edges: MutableList<Edge> = ArrayList()
+        if (direction == Direction.OUT || direction == Direction.BOTH) {
             if (vertex.outEdges != null) {
-                if (edgeLabels.length == 0)
-                    vertex.outEdges.values().forEach(edges::addAll);
-                else if (edgeLabels.length == 1)
-                    edges.addAll(vertex.outEdges.getOrDefault(edgeLabels[0], Collections.emptySet()));
-                else
-                    Stream.of(edgeLabels).map(vertex.outEdges::get).filter(Objects::nonNull).forEach(edges::addAll);
+                if (edgeLabels.size == 0) vertex.outEdges.values.forEach(Consumer { c: Set<Edge>? ->
+                    edges.addAll(
+                        c!!
+                    )
+                }) else if (edgeLabels.size == 1) edges.addAll(
+                    vertex.outEdges.getOrDefault(
+                        edgeLabels[0],
+                        emptySet()
+                    )
+                ) else Stream.of(*edgeLabels).map { key: String? -> vertex.outEdges[key] }
+                    .filter { obj: Set<Edge>? -> Objects.nonNull(obj) }
+                    .forEach { c: Set<Edge>? ->
+                        edges.addAll(
+                            c!!
+                        )
+                    }
             }
         }
-        if (direction.equals(Direction.IN) || direction.equals(Direction.BOTH)) {
+        if (direction == Direction.IN || direction == Direction.BOTH) {
             if (vertex.inEdges != null) {
-                if (edgeLabels.length == 0)
-                    vertex.inEdges.values().forEach(edges::addAll);
-                else if (edgeLabels.length == 1)
-                    edges.addAll(vertex.inEdges.getOrDefault(edgeLabels[0], Collections.emptySet()));
-                else
-                    Stream.of(edgeLabels).map(vertex.inEdges::get).filter(Objects::nonNull).forEach(edges::addAll);
+                if (edgeLabels.size == 0) vertex.inEdges.values.forEach(Consumer { c: Set<Edge>? ->
+                    edges.addAll(
+                        c!!
+                    )
+                }) else if (edgeLabels.size == 1) edges.addAll(
+                    vertex.inEdges.getOrDefault(
+                        edgeLabels[0],
+                        emptySet()
+                    )
+                ) else Stream.of(*edgeLabels).map { key: String? -> vertex.inEdges[key] }
+                    .filter { obj: Set<Edge>? -> Objects.nonNull(obj) }
+                    .forEach { c: Set<Edge>? ->
+                        edges.addAll(
+                            c!!
+                        )
+                    }
             }
         }
-        return (Iterator) edges.iterator();
+        return edges.iterator()
     }
 
-    public static Iterator<TinkerVertex> getVertices(final TinkerVertex vertex, final Direction direction, final String... edgeLabels) {
-        final List<Vertex> vertices = new ArrayList<>();
-        if (direction.equals(Direction.OUT) || direction.equals(Direction.BOTH)) {
+    fun getVertices(vertex: TinkerVertex, direction: Direction, vararg edgeLabels: String?): Iterator<TinkerVertex> {
+        val vertices: MutableList<Vertex> = ArrayList()
+        if (direction == Direction.OUT || direction == Direction.BOTH) {
             if (vertex.outEdges != null) {
-                if (edgeLabels.length == 0)
-                    vertex.outEdges.values().forEach(set -> set.forEach(edge -> vertices.add(((TinkerEdge) edge).inVertex)));
-                else if (edgeLabels.length == 1)
-                    vertex.outEdges.getOrDefault(edgeLabels[0], Collections.emptySet()).forEach(edge -> vertices.add(((TinkerEdge) edge).inVertex));
-                else
-                    Stream.of(edgeLabels).map(vertex.outEdges::get).filter(Objects::nonNull).flatMap(Set::stream).forEach(edge -> vertices.add(((TinkerEdge) edge).inVertex));
+                if (edgeLabels.size == 0) vertex.outEdges.values.forEach(Consumer { set: Set<Edge> ->
+                    set.forEach(
+                        Consumer { edge: Edge -> vertices.add((edge as TinkerEdge).inVertex) })
+                }) else if (edgeLabels.size == 1) vertex.outEdges.getOrDefault(edgeLabels[0], emptySet()).forEach(
+                    Consumer { edge: Edge -> vertices.add((edge as TinkerEdge).inVertex) }) else Stream.of(*edgeLabels)
+                    .map { key: String? -> vertex.outEdges[key] }
+                    .filter { obj: Set<Edge>? -> Objects.nonNull(obj) }
+                    .flatMap { obj: Set<Edge> -> obj.stream() }
+                    .forEach { edge: Edge -> vertices.add((edge as TinkerEdge).inVertex) }
             }
         }
-        if (direction.equals(Direction.IN) || direction.equals(Direction.BOTH)) {
+        if (direction == Direction.IN || direction == Direction.BOTH) {
             if (vertex.inEdges != null) {
-                if (edgeLabels.length == 0)
-                    vertex.inEdges.values().forEach(set -> set.forEach(edge -> vertices.add(((TinkerEdge) edge).outVertex)));
-                else if (edgeLabels.length == 1)
-                    vertex.inEdges.getOrDefault(edgeLabels[0], Collections.emptySet()).forEach(edge -> vertices.add(((TinkerEdge) edge).outVertex));
-                else
-                    Stream.of(edgeLabels).map(vertex.inEdges::get).filter(Objects::nonNull).flatMap(Set::stream).forEach(edge -> vertices.add(((TinkerEdge) edge).outVertex));
+                if (edgeLabels.size == 0) vertex.inEdges.values.forEach(Consumer { set: Set<Edge> ->
+                    set.forEach(
+                        Consumer { edge: Edge -> vertices.add((edge as TinkerEdge).outVertex) })
+                }) else if (edgeLabels.size == 1) vertex.inEdges.getOrDefault(edgeLabels[0], emptySet()).forEach(
+                    Consumer { edge: Edge -> vertices.add((edge as TinkerEdge).outVertex) }) else Stream.of(*edgeLabels)
+                    .map { key: String? -> vertex.inEdges[key] }
+                    .filter { obj: Set<Edge>? -> Objects.nonNull(obj) }
+                    .flatMap { obj: Set<Edge> -> obj.stream() }
+                    .forEach { edge: Edge -> vertices.add((edge as TinkerEdge).outVertex) }
             }
         }
-        return (Iterator) vertices.iterator();
+        return vertices.iterator()
     }
 
-    public static Map<Object, Vertex> getVertices(final TinkerCat graph) {
-        return graph.vertices;
+    fun getVertices(graph: TinkerCat): Map<Any, Vertex> {
+        return graph.vertices
     }
 
-    public static Map<Object, Edge> getEdges(final TinkerCat graph) {
-        return graph.edges;
+    fun getEdges(graph: TinkerCat): Map<Any, Edge> {
+        return graph.edges
     }
 }

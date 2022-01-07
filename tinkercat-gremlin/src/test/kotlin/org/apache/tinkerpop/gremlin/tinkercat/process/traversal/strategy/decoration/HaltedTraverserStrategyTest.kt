@@ -16,98 +16,224 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.tinkerpop.gremlin.tinkercat.process.traversal.strategy.decoration
 
-package org.apache.tinkerpop.gremlin.tinkercat.process.traversal.strategy.decoration;
-
-import org.apache.commons.configuration2.MapConfiguration;
-import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
-import org.apache.tinkerpop.gremlin.process.traversal.strategy.decoration.HaltedTraverserStrategy;
-import org.apache.tinkerpop.gremlin.process.traversal.strategy.decoration.SubgraphStrategy;
-import org.apache.tinkerpop.gremlin.structure.Graph;
-import org.apache.tinkerpop.gremlin.structure.util.detached.DetachedEdge;
-import org.apache.tinkerpop.gremlin.structure.util.detached.DetachedFactory;
-import org.apache.tinkerpop.gremlin.structure.util.detached.DetachedPath;
-import org.apache.tinkerpop.gremlin.structure.util.detached.DetachedProperty;
-import org.apache.tinkerpop.gremlin.structure.util.detached.DetachedVertex;
-import org.apache.tinkerpop.gremlin.structure.util.detached.DetachedVertexProperty;
-import org.apache.tinkerpop.gremlin.structure.util.reference.ReferenceEdge;
-import org.apache.tinkerpop.gremlin.structure.util.reference.ReferencePath;
-import org.apache.tinkerpop.gremlin.structure.util.reference.ReferenceProperty;
-import org.apache.tinkerpop.gremlin.structure.util.reference.ReferenceVertex;
-import org.apache.tinkerpop.gremlin.structure.util.reference.ReferenceVertexProperty;
-import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerFactory;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-
-import java.util.HashMap;
-
-import static org.junit.Assert.assertEquals;
+import org.apache.commons.configuration2.MapConfiguration
+import org.apache.tinkerpop.gremlin.process.traversal.Path
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerFactory.createModern
+import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource
+import org.apache.tinkerpop.gremlin.process.traversal.strategy.decoration.HaltedTraverserStrategy
+import org.apache.tinkerpop.gremlin.structure.Edge
+import org.apache.tinkerpop.gremlin.structure.Graph
+import org.apache.tinkerpop.gremlin.structure.Property
+import org.apache.tinkerpop.gremlin.structure.Vertex
+import org.apache.tinkerpop.gremlin.structure.util.detached.DetachedFactory
+import org.apache.tinkerpop.gremlin.structure.util.detached.DetachedVertex
+import org.apache.tinkerpop.gremlin.structure.util.detached.DetachedVertexProperty
+import org.apache.tinkerpop.gremlin.structure.util.detached.DetachedEdge
+import org.apache.tinkerpop.gremlin.structure.util.detached.DetachedProperty
+import org.apache.tinkerpop.gremlin.structure.util.detached.DetachedPath
+import org.apache.tinkerpop.gremlin.structure.util.reference.*
+import org.junit.After
+import org.junit.Assert
+import org.junit.Before
+import org.junit.Test
+import java.util.HashMap
+import java.util.function.Consumer
 
 /**
  * @author Marko A. Rodriguez (http://markorodriguez.com)
  */
-public class HaltedTraverserStrategyTest {
-
+class HaltedTraverserStrategyTest {
     @Before
-    public void setup() {
+    fun setup() {
         // necessary as ComputerResult step for testing purposes attaches Attachables
-        System.setProperty("is.testing", "false");
+        System.setProperty("is.testing", "false")
     }
 
     @After
-    public void shutdown() {
-        System.setProperty("is.testing", "true");
+    fun shutdown() {
+        System.setProperty("is.testing", "true")
     }
 
     @Test
-    public void shouldReturnDetachedElements() {
-        final Graph graph = TinkerFactory.createModern();
-        final GraphTraversalSource g = graph.traversal().withComputer().withStrategies(HaltedTraverserStrategy.create(new MapConfiguration(new HashMap<String, Object>() {{
-            put(HaltedTraverserStrategy.HALTED_TRAVERSER_FACTORY, DetachedFactory.class.getCanonicalName());
-        }})));
-        g.V().out().forEachRemaining(vertex -> assertEquals(DetachedVertex.class, vertex.getClass()));
-        g.V().out().properties("name").forEachRemaining(vertexProperty -> assertEquals(DetachedVertexProperty.class, vertexProperty.getClass()));
-        g.V().out().values("name").forEachRemaining(value -> assertEquals(String.class, value.getClass()));
-        g.V().out().outE().forEachRemaining(edge -> assertEquals(DetachedEdge.class, edge.getClass()));
-        g.V().out().outE().properties("weight").forEachRemaining(property -> assertEquals(DetachedProperty.class, property.getClass()));
-        g.V().out().outE().values("weight").forEachRemaining(value -> assertEquals(Double.class, value.getClass()));
-        g.V().out().out().forEachRemaining(vertex -> assertEquals(DetachedVertex.class, vertex.getClass()));
-        g.V().out().out().path().forEachRemaining(path -> assertEquals(DetachedPath.class, path.getClass()));
-        g.V().out().pageRank().forEachRemaining(vertex -> assertEquals(DetachedVertex.class, vertex.getClass()));
-        g.V().out().pageRank().out().forEachRemaining(vertex -> assertEquals(DetachedVertex.class, vertex.getClass()));
+    fun shouldReturnDetachedElements() {
+        val graph: Graph = createModern()
+        val g = graph.traversal().withComputer()
+            .withStrategies(HaltedTraverserStrategy.create(MapConfiguration(object : HashMap<String?, Any?>() {
+                init {
+                    put(HaltedTraverserStrategy.HALTED_TRAVERSER_FACTORY, DetachedFactory::class.java.canonicalName)
+                }
+            })))
+        g.V().out().forEachRemaining { vertex: Vertex ->
+            Assert.assertEquals(
+                DetachedVertex::class.java, vertex.javaClass
+            )
+        }
+        g.V().out().properties<Any>("name").forEachRemaining { vertexProperty: Property<Any>? ->
+            Assert.assertEquals(
+                DetachedVertexProperty::class.java, vertexProperty!!.javaClass
+            )
+        }
+        g.V().out().values<Any>("name").forEachRemaining { value: Any ->
+            Assert.assertEquals(
+                String::class.java, value.javaClass
+            )
+        }
+        g.V().out().outE().forEachRemaining { edge: Edge ->
+            Assert.assertEquals(
+                DetachedEdge::class.java, edge.javaClass
+            )
+        }
+        g.V().out().outE().properties<Any>("weight").forEachRemaining { property: Property<Any>? ->
+            Assert.assertEquals(
+                DetachedProperty::class.java, property!!.javaClass
+            )
+        }
+        g.V().out().outE().values<Any>("weight").forEachRemaining { value: Any ->
+            Assert.assertEquals(
+                Double::class.java, value.javaClass
+            )
+        }
+        g.V().out().out().forEachRemaining { vertex: Vertex ->
+            Assert.assertEquals(
+                DetachedVertex::class.java, vertex.javaClass
+            )
+        }
+        g.V().out().out().path().forEachRemaining { path: Path ->
+            Assert.assertEquals(
+                DetachedPath::class.java, path.javaClass
+            )
+        }
+        g.V().out().pageRank().forEachRemaining { vertex: Vertex ->
+            Assert.assertEquals(
+                DetachedVertex::class.java, vertex.javaClass
+            )
+        }
+        g.V().out().pageRank().out().forEachRemaining { vertex: Vertex ->
+            Assert.assertEquals(
+                DetachedVertex::class.java, vertex.javaClass
+            )
+        }
         // should handle nested collections
-        g.V().out().fold().next().forEach(vertex -> assertEquals(DetachedVertex.class, vertex.getClass()));
+        g.V().out().fold().next().forEach(Consumer { vertex: Vertex ->
+            Assert.assertEquals(
+                DetachedVertex::class.java, vertex.javaClass
+            )
+        })
     }
 
     @Test
-    public void shouldReturnReferenceElements() {
-        final Graph graph = TinkerFactory.createModern();
-        GraphTraversalSource g = graph.traversal().withComputer().withStrategies(HaltedTraverserStrategy.reference());
-        g.V().out().forEachRemaining(vertex -> assertEquals(ReferenceVertex.class, vertex.getClass()));
-        g.V().out().properties("name").forEachRemaining(vertexProperty -> assertEquals(ReferenceVertexProperty.class, vertexProperty.getClass()));
-        g.V().out().values("name").forEachRemaining(value -> assertEquals(String.class, value.getClass()));
-        g.V().out().outE().forEachRemaining(edge -> assertEquals(ReferenceEdge.class, edge.getClass()));
-        g.V().out().outE().properties("weight").forEachRemaining(property -> assertEquals(ReferenceProperty.class, property.getClass()));
-        g.V().out().outE().values("weight").forEachRemaining(value -> assertEquals(Double.class, value.getClass()));
-        g.V().out().out().forEachRemaining(vertex -> assertEquals(ReferenceVertex.class, vertex.getClass()));
-        g.V().out().out().path().forEachRemaining(path -> assertEquals(ReferencePath.class, path.getClass()));
-        g.V().out().pageRank().forEachRemaining(vertex -> assertEquals(ReferenceVertex.class, vertex.getClass()));
-        g.V().out().pageRank().out().forEachRemaining(vertex -> assertEquals(ReferenceVertex.class, vertex.getClass()));
+    fun shouldReturnReferenceElements() {
+        val graph: Graph = createModern()
+        var g = graph.traversal().withComputer().withStrategies(HaltedTraverserStrategy.reference())
+        g.V().out().forEachRemaining { vertex: Vertex ->
+            Assert.assertEquals(
+                ReferenceVertex::class.java, vertex.javaClass
+            )
+        }
+        g.V().out().properties<Any>("name").forEachRemaining { vertexProperty: Property<Any>? ->
+            Assert.assertEquals(
+                ReferenceVertexProperty::class.java, vertexProperty!!.javaClass
+            )
+        }
+        g.V().out().values<Any>("name").forEachRemaining { value: Any ->
+            Assert.assertEquals(
+                String::class.java, value.javaClass
+            )
+        }
+        g.V().out().outE().forEachRemaining { edge: Edge ->
+            Assert.assertEquals(
+                ReferenceEdge::class.java, edge.javaClass
+            )
+        }
+        g.V().out().outE().properties<Any>("weight").forEachRemaining { property: Property<Any>? ->
+            Assert.assertEquals(
+                ReferenceProperty::class.java, property!!.javaClass
+            )
+        }
+        g.V().out().outE().values<Any>("weight").forEachRemaining { value: Any ->
+            Assert.assertEquals(
+                Double::class.java, value.javaClass
+            )
+        }
+        g.V().out().out().forEachRemaining { vertex: Vertex ->
+            Assert.assertEquals(
+                ReferenceVertex::class.java, vertex.javaClass
+            )
+        }
+        g.V().out().out().path().forEachRemaining { path: Path ->
+            Assert.assertEquals(
+                ReferencePath::class.java, path.javaClass
+            )
+        }
+        g.V().out().pageRank().forEachRemaining { vertex: Vertex ->
+            Assert.assertEquals(
+                ReferenceVertex::class.java, vertex.javaClass
+            )
+        }
+        g.V().out().pageRank().out().forEachRemaining { vertex: Vertex ->
+            Assert.assertEquals(
+                ReferenceVertex::class.java, vertex.javaClass
+            )
+        }
         // the default should be reference elements
-        g = graph.traversal().withComputer();
-        g.V().out().forEachRemaining(vertex -> assertEquals(ReferenceVertex.class, vertex.getClass()));
-        g.V().out().properties("name").forEachRemaining(vertexProperty -> assertEquals(ReferenceVertexProperty.class, vertexProperty.getClass()));
-        g.V().out().values("name").forEachRemaining(value -> assertEquals(String.class, value.getClass()));
-        g.V().out().outE().forEachRemaining(edge -> assertEquals(ReferenceEdge.class, edge.getClass()));
-        g.V().out().outE().properties("weight").forEachRemaining(property -> assertEquals(ReferenceProperty.class, property.getClass()));
-        g.V().out().outE().values("weight").forEachRemaining(value -> assertEquals(Double.class, value.getClass()));
-        g.V().out().out().forEachRemaining(vertex -> assertEquals(ReferenceVertex.class, vertex.getClass()));
-        g.V().out().out().path().forEachRemaining(path -> assertEquals(ReferencePath.class, path.getClass()));
-        g.V().out().pageRank().forEachRemaining(vertex -> assertEquals(ReferenceVertex.class, vertex.getClass()));
-        g.V().out().pageRank().out().forEachRemaining(vertex -> assertEquals(ReferenceVertex.class, vertex.getClass()));
+        g = graph.traversal().withComputer()
+        g.V().out().forEachRemaining { vertex: Vertex ->
+            Assert.assertEquals(
+                ReferenceVertex::class.java, vertex.javaClass
+            )
+        }
+        g.V().out().properties<Any>("name").forEachRemaining { vertexProperty: Property<Any>? ->
+            Assert.assertEquals(
+                ReferenceVertexProperty::class.java, vertexProperty!!.javaClass
+            )
+        }
+        g.V().out().values<Any>("name").forEachRemaining { value: Any ->
+            Assert.assertEquals(
+                String::class.java, value.javaClass
+            )
+        }
+        g.V().out().outE().forEachRemaining { edge: Edge ->
+            Assert.assertEquals(
+                ReferenceEdge::class.java, edge.javaClass
+            )
+        }
+        g.V().out().outE().properties<Any>("weight").forEachRemaining { property: Property<Any>? ->
+            Assert.assertEquals(
+                ReferenceProperty::class.java, property!!.javaClass
+            )
+        }
+        g.V().out().outE().values<Any>("weight").forEachRemaining { value: Any ->
+            Assert.assertEquals(
+                Double::class.java, value.javaClass
+            )
+        }
+        g.V().out().out().forEachRemaining { vertex: Vertex ->
+            Assert.assertEquals(
+                ReferenceVertex::class.java, vertex.javaClass
+            )
+        }
+        g.V().out().out().path().forEachRemaining { path: Path ->
+            Assert.assertEquals(
+                ReferencePath::class.java, path.javaClass
+            )
+        }
+        g.V().out().pageRank().forEachRemaining { vertex: Vertex ->
+            Assert.assertEquals(
+                ReferenceVertex::class.java, vertex.javaClass
+            )
+        }
+        g.V().out().pageRank().out().forEachRemaining { vertex: Vertex ->
+            Assert.assertEquals(
+                ReferenceVertex::class.java, vertex.javaClass
+            )
+        }
         // should handle nested collections
-        g.V().out().fold().next().forEach(vertex -> assertEquals(ReferenceVertex.class, vertex.getClass()));
+        g.V().out().fold().next().forEach(Consumer { vertex: Vertex ->
+            Assert.assertEquals(
+                ReferenceVertex::class.java, vertex.javaClass
+            )
+        })
     }
-
 }

@@ -16,54 +16,59 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.tinkerpop.gremlin.tinkercat.process.traversal.strategy.optimization;
+package org.apache.tinkerpop.gremlin.tinkercat.process.traversal.strategy.optimization
 
-import org.apache.tinkerpop.gremlin.process.traversal.Step;
-import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
-import org.apache.tinkerpop.gremlin.process.traversal.TraversalStrategy;
-import org.apache.tinkerpop.gremlin.process.traversal.step.HasContainerHolder;
-import org.apache.tinkerpop.gremlin.process.traversal.step.filter.HasStep;
-import org.apache.tinkerpop.gremlin.process.traversal.step.map.GraphStep;
-import org.apache.tinkerpop.gremlin.process.traversal.step.map.NoOpBarrierStep;
-import org.apache.tinkerpop.gremlin.process.traversal.step.util.HasContainer;
-import org.apache.tinkerpop.gremlin.process.traversal.strategy.AbstractTraversalStrategy;
-import org.apache.tinkerpop.gremlin.process.traversal.util.TraversalHelper;
-import org.apache.tinkerpop.gremlin.tinkercat.process.traversal.step.sideEffect.TinkerCatStep;
+import org.apache.tinkerpop.gremlin.process.traversal.Step
+import org.apache.tinkerpop.gremlin.process.traversal.Traversal
+import org.apache.tinkerpop.gremlin.tinkercat.process.traversal.step.sideEffect.TinkerCatStep.addHasContainer
+import org.apache.tinkerpop.gremlin.process.traversal.strategy.AbstractTraversalStrategy
+import org.apache.tinkerpop.gremlin.process.traversal.TraversalStrategy.ProviderOptimizationStrategy
+import org.apache.tinkerpop.gremlin.process.traversal.step.map.GraphStep
+import org.apache.tinkerpop.gremlin.tinkercat.process.traversal.step.sideEffect.TinkerCatStep
+import org.apache.tinkerpop.gremlin.process.traversal.step.filter.HasStep
+import org.apache.tinkerpop.gremlin.process.traversal.step.map.NoOpBarrierStep
+import org.apache.tinkerpop.gremlin.process.traversal.step.util.HasContainer
+import org.apache.tinkerpop.gremlin.process.traversal.step.HasContainerHolder
+import org.apache.tinkerpop.gremlin.process.traversal.util.TraversalHelper
+import org.apache.tinkerpop.gremlin.tinkercat.process.traversal.strategy.optimization.TinkerCatStepStrategy
 
 /**
  * @author Marko A. Rodriguez (http://markorodriguez.com)
  */
-public final class TinkerCatStepStrategy extends AbstractTraversalStrategy<TraversalStrategy.ProviderOptimizationStrategy> implements TraversalStrategy.ProviderOptimizationStrategy {
-
-    private static final TinkerCatStepStrategy INSTANCE = new TinkerCatStepStrategy();
-
-    private TinkerCatStepStrategy() {
-    }
-
-    @Override
-    public void apply(final Traversal.Admin<?, ?> traversal) {
-        if (TraversalHelper.onGraphComputer(traversal))
-            return;
-
-        for (final GraphStep originalGraphStep : TraversalHelper.getStepsOfClass(GraphStep.class, traversal)) {
-            final TinkerCatStep<?, ?> tinkerGraphStep = new TinkerCatStep<>(originalGraphStep);
-            TraversalHelper.replaceStep(originalGraphStep, tinkerGraphStep, traversal);
-            Step<?, ?> currentStep = tinkerGraphStep.getNextStep();
-            while (currentStep instanceof HasStep || currentStep instanceof NoOpBarrierStep) {
-                if (currentStep instanceof HasStep) {
-                    for (final HasContainer hasContainer : ((HasContainerHolder) currentStep).getHasContainers()) {
-                        if (!GraphStep.processHasContainerIds(tinkerGraphStep, hasContainer))
-                            tinkerGraphStep.addHasContainer(hasContainer);
+class TinkerCatStepStrategy private constructor() : AbstractTraversalStrategy<ProviderOptimizationStrategy?>(),
+    ProviderOptimizationStrategy {
+    override fun apply(traversal: Traversal.Admin<*, *>) {
+        if (TraversalHelper.onGraphComputer(traversal)) return
+        for (originalGraphStep in TraversalHelper.getStepsOfClass(
+            GraphStep::class.java, traversal
+        )) {
+            val tinkerGraphStep: TinkerCatStep<*, *> = TinkerCatStep<Any?, Any?>(originalGraphStep)
+            TraversalHelper.replaceStep(originalGraphStep, tinkerGraphStep, traversal)
+            var currentStep: Step<*, *> = tinkerGraphStep.nextStep
+            while (currentStep is HasStep<*> || currentStep is NoOpBarrierStep<*>) {
+                if (currentStep is HasStep<*>) {
+                    for (hasContainer in (currentStep as HasContainerHolder).hasContainers) {
+                        if (!GraphStep.processHasContainerIds(
+                                tinkerGraphStep,
+                                hasContainer
+                            )
+                        ) tinkerGraphStep.addHasContainer(
+                            hasContainer!!
+                        )
                     }
-                    TraversalHelper.copyLabels(currentStep, currentStep.getPreviousStep(), false);
-                    traversal.removeStep(currentStep);
+                    TraversalHelper.copyLabels(currentStep, currentStep.previousStep, false)
+                    traversal.removeStep<Any, Any>(currentStep)
                 }
-                currentStep = currentStep.getNextStep();
+                currentStep = currentStep.nextStep
             }
         }
     }
 
-    public static TinkerCatStepStrategy instance() {
-        return INSTANCE;
+    companion object {
+        private val INSTANCE = TinkerCatStepStrategy()
+        @JvmStatic
+        fun instance(): TinkerCatStepStrategy {
+            return INSTANCE
+        }
     }
 }

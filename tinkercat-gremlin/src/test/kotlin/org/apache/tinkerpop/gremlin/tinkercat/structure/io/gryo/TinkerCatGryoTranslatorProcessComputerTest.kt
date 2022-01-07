@@ -16,18 +16,17 @@
  *  specific language governing permissions and limitations
  *  under the License.
  */
+package org.apache.tinkerpop.gremlin.tinkercat.structure.io.gryo
 
-package org.apache.tinkerpop.gremlin.tinkercat.structure.io.gryo;
-
-import org.apache.tinkerpop.gremlin.GraphProviderClass;
-import org.apache.tinkerpop.gremlin.process.ProcessComputerSuite;
-import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat;
-import org.junit.runner.RunWith;
+import org.junit.runner.RunWith
+import org.apache.tinkerpop.gremlin.process.ProcessComputerSuite
+import org.apache.tinkerpop.gremlin.GraphProviderClass
+import org.apache.tinkerpop.gremlin.tinkercat.structure.io.gryo.TinkerCatGryoTranslatorComputerProvider
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat
 
 /**
  * @author Marko A. Rodriguez (http://markorodriguez.com)
  */
-@RunWith(ProcessComputerSuite.class)
-@GraphProviderClass(provider = TinkerCatGryoTranslatorComputerProvider.class, graph = TinkerCat.class)
-public class TinkerCatGryoTranslatorProcessComputerTest {
-}
+@RunWith(ProcessComputerSuite::class)
+@GraphProviderClass(provider = TinkerCatGryoTranslatorComputerProvider::class, graph = TinkerCat::class)
+class TinkerCatGryoTranslatorProcessComputerTest 

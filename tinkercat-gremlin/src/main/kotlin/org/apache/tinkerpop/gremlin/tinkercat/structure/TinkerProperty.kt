@@ -16,74 +16,57 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.tinkerpop.gremlin.tinkercat.structure;
+package org.apache.tinkerpop.gremlin.tinkercat.structure
 
-import org.apache.tinkerpop.gremlin.structure.Edge;
-import org.apache.tinkerpop.gremlin.structure.Element;
-import org.apache.tinkerpop.gremlin.structure.Property;
-import org.apache.tinkerpop.gremlin.structure.util.ElementHelper;
-import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
+import org.apache.tinkerpop.gremlin.structure.Edge
+import org.apache.tinkerpop.gremlin.structure.Element
+import org.apache.tinkerpop.gremlin.structure.Property
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerHelper.removeIndex
+import org.apache.tinkerpop.gremlin.structure.util.StringFactory
+import org.apache.tinkerpop.gremlin.structure.util.ElementHelper
 
 /**
  * @author Marko A. Rodriguez (http://markorodriguez.com)
  */
-public final class TinkerProperty<V> implements Property<V> {
-
-    protected final Element element;
-    protected final String key;
-    protected V value;
-
-    public TinkerProperty(final Element element, final String key, final V value) {
-        this.element = element;
-        this.key = key;
-        this.value = value;
+class TinkerProperty<V>(protected val element: Element, protected val key: String, protected var value: V) :
+    Property<V> {
+    override fun element(): Element {
+        return element
     }
 
-    @Override
-    public Element element() {
-        return this.element;
+    override fun key(): String {
+        return key
     }
 
-    @Override
-    public String key() {
-        return this.key;
-    }
-
-    @Override
-    public V value() {
-        return this.value;
+    override fun value(): V {
+        return value
     }
 
     /**
-     * The existence of this object implies the property is present, thus even a {@code null} value means "present".
+     * The existence of this object implies the property is present, thus even a `null` value means "present".
      */
-    @Override
-    public boolean isPresent() {
-        return true;
+    override fun isPresent(): Boolean {
+        return true
     }
 
-    @Override
-    public String toString() {
-        return StringFactory.propertyString(this);
+    override fun toString(): String {
+        return StringFactory.propertyString(this)
     }
 
-    @Override
-    public boolean equals(final Object object) {
-        return ElementHelper.areEqual(this, object);
+    override fun equals(`object`: Any?): Boolean {
+        return ElementHelper.areEqual(this, `object`)
     }
 
-    @Override
-    public int hashCode() {
-        return ElementHelper.hashCode(this);
+    override fun hashCode(): Int {
+        return ElementHelper.hashCode(this)
     }
 
-    @Override
-    public void remove() {
-        if (this.element instanceof Edge) {
-            ((TinkerEdge) this.element).properties.remove(this.key);
-            TinkerHelper.removeIndex((TinkerEdge) this.element, this.key, this.value);
+    override fun remove() {
+        if (element is Edge) {
+            (element as TinkerEdge).properties!!.remove(key)
+            removeIndex(element, key, value)
         } else {
-            ((TinkerVertexProperty) this.element).properties.remove(this.key);
+            (element as TinkerVertexProperty<*>).properties.remove(key)
         }
     }
 }

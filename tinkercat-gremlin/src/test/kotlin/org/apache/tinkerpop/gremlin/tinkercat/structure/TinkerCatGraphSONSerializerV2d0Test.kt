@@ -16,80 +16,68 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.tinkerpop.gremlin.tinkercat.structure;
+package org.apache.tinkerpop.gremlin.tinkercat.structure
 
-import org.apache.tinkerpop.gremlin.process.traversal.Path;
-import org.apache.tinkerpop.gremlin.process.traversal.step.util.Tree;
-import org.apache.tinkerpop.gremlin.process.traversal.util.Metrics;
-import org.apache.tinkerpop.gremlin.process.traversal.util.MutableMetrics;
-import org.apache.tinkerpop.gremlin.process.traversal.util.TraversalMetrics;
-import org.apache.tinkerpop.gremlin.structure.Edge;
-import org.apache.tinkerpop.gremlin.structure.Graph;
-import org.apache.tinkerpop.gremlin.structure.Property;
-import org.apache.tinkerpop.gremlin.structure.T;
-import org.apache.tinkerpop.gremlin.structure.Vertex;
-import org.apache.tinkerpop.gremlin.structure.VertexProperty;
-import org.apache.tinkerpop.gremlin.structure.io.GraphReader;
-import org.apache.tinkerpop.gremlin.structure.io.GraphWriter;
-import org.apache.tinkerpop.gremlin.structure.io.IoTest;
-import org.apache.tinkerpop.gremlin.structure.io.Mapper;
-import org.apache.tinkerpop.gremlin.structure.io.graphson.GraphSONMapper;
-import org.apache.tinkerpop.gremlin.structure.io.graphson.GraphSONReader;
-import org.apache.tinkerpop.gremlin.structure.io.graphson.GraphSONVersion;
-import org.apache.tinkerpop.gremlin.structure.io.graphson.GraphSONWriter;
-import org.apache.tinkerpop.gremlin.structure.io.graphson.GraphSONXModuleV2d0;
-import org.apache.tinkerpop.gremlin.structure.io.graphson.TypeInfo;
-import org.junit.Test;
+import org.apache.tinkerpop.gremlin.process.traversal.Path
+import org.apache.tinkerpop.gremlin.process.traversal.step.util.Tree
+import org.apache.tinkerpop.gremlin.process.traversal.util.Metrics
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerIoRegistryV2d0.Companion.instance
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerFactory.createModern
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat.Companion.open
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerFactory.generateModern
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat.addVertex
+import kotlin.Throws
+import java.io.IOException
+import org.apache.tinkerpop.gremlin.structure.io.GraphWriter
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat
+import java.io.ByteArrayInputStream
+import org.apache.tinkerpop.gremlin.structure.io.IoTest
+import java.net.InetAddress
+import java.time.LocalDateTime
+import java.time.Year
+import org.apache.tinkerpop.gremlin.process.traversal.util.TraversalMetrics
+import org.apache.tinkerpop.gremlin.process.traversal.util.MutableMetrics
+import org.apache.tinkerpop.gremlin.structure.*
+import org.apache.tinkerpop.gremlin.structure.io.GraphReader
+import org.apache.tinkerpop.gremlin.structure.io.Mapper
+import org.apache.tinkerpop.gremlin.structure.io.graphson.*
+import org.junit.Assert
+import org.junit.Ignore
+import org.junit.Test
+import java.io.ByteArrayOutputStream
+import java.nio.ByteBuffer
+import java.time.Duration
+import java.util.*
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.net.InetAddress;
-import java.nio.ByteBuffer;
-import java.time.Duration;
-import java.time.LocalDateTime;
-import java.time.Year;
-import java.util.Iterator;
-import java.util.Set;
-import java.util.UUID;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-
-
-public class TinkerCatGraphSONSerializerV2d0Test {
-
+class TinkerCatGraphSONSerializerV2d0Test {
     // As of TinkerPop 3.2.1 default for GraphSON 2.0 means types enabled.
-    private final Mapper defaultMapperV2d0 = GraphSONMapper.build()
-            .version(GraphSONVersion.V2_0)
-            .addCustomModule(GraphSONXModuleV2d0.build().create(false))
-            .addRegistry(TinkerIoRegistryV2d0.instance())
-            .create();
-
-    private final Mapper noTypesMapperV2d0 = GraphSONMapper.build()
-            .version(GraphSONVersion.V2_0)
-            .addCustomModule(GraphSONXModuleV2d0.build().create(false))
-            .typeInfo(TypeInfo.NO_TYPES)
-            .addRegistry(TinkerIoRegistryV2d0.instance())
-            .create();
+    private val defaultMapperV2d0: Mapper<*> = GraphSONMapper.build()
+        .version(GraphSONVersion.V2_0)
+        .addCustomModule(GraphSONXModuleV2d0.build().create(false))
+        .addRegistry(instance())
+        .create()
+    private val noTypesMapperV2d0: Mapper<*> = GraphSONMapper.build()
+        .version(GraphSONVersion.V2_0)
+        .addCustomModule(GraphSONXModuleV2d0.build().create(false))
+        .typeInfo(TypeInfo.NO_TYPES)
+        .addRegistry(instance())
+        .create()
 
     /**
      * Checks that the graph has been fully ser/deser with types.
      */
     @Test
-    public void shouldDeserializeGraphSONIntoTinkerCatWithPartialTypes() throws IOException {
-        final GraphWriter writer = getWriter(defaultMapperV2d0);
-        final GraphReader reader = getReader(defaultMapperV2d0);
-        final  TinkerCat baseModern = TinkerFactory.createModern();
-
-        try (final ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            writer.writeGraph(out, baseModern);
-            final String json = out.toString();
-            final TinkerCat read = TinkerCat.open();
-            reader.readGraph(new ByteArrayInputStream(json.getBytes()), read);
-            IoTest.assertModernGraph(read, true, false);
+    @Throws(IOException::class)
+    fun shouldDeserializeGraphSONIntoTinkerCatWithPartialTypes() {
+        val writer = getWriter(defaultMapperV2d0)
+        val reader = getReader(defaultMapperV2d0)
+        val baseModern = createModern()
+        ByteArrayOutputStream().use { out ->
+            writer.writeGraph(out, baseModern)
+            val json = out.toString()
+            val read = open()
+            reader.readGraph(ByteArrayInputStream(json.toByteArray()), read)
+            IoTest.assertModernGraph(read, true, false)
         }
     }
 
@@ -97,17 +85,17 @@ public class TinkerCatGraphSONSerializerV2d0Test {
      * Checks that the graph has been fully ser/deser without types.
      */
     @Test
-    public void shouldDeserializeGraphSONIntoTinkerCatWithoutTypes() throws IOException {
-        final GraphWriter writer = getWriter(noTypesMapperV2d0);
-        final GraphReader reader = getReader(noTypesMapperV2d0);
-        final TinkerCat baseModern = TinkerFactory.createModern();
-
-        try (final ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            writer.writeGraph(out, baseModern);
-            final String json = out.toString();
-            final TinkerCat read = TinkerCat.open();
-            reader.readGraph(new ByteArrayInputStream(json.getBytes()), read);
-            IoTest.assertModernGraph(read, true, false);
+    @Throws(IOException::class)
+    fun shouldDeserializeGraphSONIntoTinkerCatWithoutTypes() {
+        val writer = getWriter(noTypesMapperV2d0)
+        val reader = getReader(noTypesMapperV2d0)
+        val baseModern = createModern()
+        ByteArrayOutputStream().use { out ->
+            writer.writeGraph(out, baseModern)
+            val json = out.toString()
+            val read = open()
+            reader.readGraph(ByteArrayInputStream(json.toByteArray()), read)
+            IoTest.assertModernGraph(read, true, false)
         }
     }
 
@@ -115,22 +103,22 @@ public class TinkerCatGraphSONSerializerV2d0Test {
      * Thorough types verification for Vertex ids, Vertex props, Edge ids, Edge props
      */
     @Test
-    public void shouldDeserializeGraphSONIntoTinkerCatKeepingTypes() throws IOException {
-        final GraphWriter writer = getWriter(defaultMapperV2d0);
-        final GraphReader reader = getReader(defaultMapperV2d0);
-
-        final Graph sampleGraph1 = TinkerFactory.createModern();
-        final Vertex v1 = sampleGraph1.addVertex(T.id, 100, "name", "kevin", "theUUID", UUID.randomUUID());
-        final Vertex v2 = sampleGraph1.addVertex(T.id, 101L, "name", "henri", "theUUID", UUID.randomUUID());
-        v1.addEdge("hello", v2, T.id, 101L,
-                "uuid", UUID.randomUUID());
-
-        try (final ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            writer.writeObject(out, sampleGraph1);
-            final String json = out.toString();
-
-            final TinkerCat read = reader.readObject(new ByteArrayInputStream(json.getBytes()), TinkerCat.class);
-            assertTrue(approximateGraphsCheck(sampleGraph1, read));
+    @Throws(IOException::class)
+    fun shouldDeserializeGraphSONIntoTinkerCatKeepingTypes() {
+        val writer = getWriter(defaultMapperV2d0)
+        val reader = getReader(defaultMapperV2d0)
+        val sampleGraph1: Graph = createModern()
+        val v1 = sampleGraph1.addVertex(T.id, 100, "name", "kevin", "theUUID", UUID.randomUUID())
+        val v2 = sampleGraph1.addVertex(T.id, 101L, "name", "henri", "theUUID", UUID.randomUUID())
+        v1.addEdge(
+            "hello", v2, T.id, 101L,
+            "uuid", UUID.randomUUID()
+        )
+        ByteArrayOutputStream().use { out ->
+            writer.writeObject(out, sampleGraph1)
+            val json = out.toString()
+            val read = reader.readObject(ByteArrayInputStream(json.toByteArray()), TinkerCat::class.java)
+            Assert.assertTrue(approximateGraphsCheck(sampleGraph1, read))
         }
     }
 
@@ -138,19 +126,20 @@ public class TinkerCatGraphSONSerializerV2d0Test {
      * Asserts the approximateGraphsChecks function fails when expected. Vertex ids.
      */
     @Test
-    public void shouldLoseTypesWithGraphSONNoTypesForVertexIds() throws IOException {
-        final GraphWriter writer = getWriter(noTypesMapperV2d0);
-        final GraphReader reader = getReader(noTypesMapperV2d0);
-        final TinkerCat sampleGraph1 = TinkerCat.open();
-        TinkerFactory.generateModern(sampleGraph1);
-        sampleGraph1.addVertex(T.id, 100L, "name", "kevin");
-        try (final ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            writer.writeGraph(out, sampleGraph1);
-            final String json = out.toString();
-            final TinkerCat read = TinkerCat.open();
-            reader.readGraph(new ByteArrayInputStream(json.getBytes()), read);
+    @Throws(IOException::class)
+    fun shouldLoseTypesWithGraphSONNoTypesForVertexIds() {
+        val writer = getWriter(noTypesMapperV2d0)
+        val reader = getReader(noTypesMapperV2d0)
+        val sampleGraph1 = open()
+        generateModern(sampleGraph1)
+        sampleGraph1.addVertex(T.id, 100L, "name", "kevin")
+        ByteArrayOutputStream().use { out ->
+            writer.writeGraph(out, sampleGraph1)
+            val json = out.toString()
+            val read = open()
+            reader.readGraph(ByteArrayInputStream(json.toByteArray()), read)
             // Should fail on deserialized vertex Id.
-            assertFalse(approximateGraphsCheck(sampleGraph1, read));
+            Assert.assertFalse(approximateGraphsCheck(sampleGraph1, read))
         }
     }
 
@@ -158,20 +147,20 @@ public class TinkerCatGraphSONSerializerV2d0Test {
      * Asserts the approximateGraphsChecks function fails when expected. Vertex props.
      */
     @Test
-    public void shouldLoseTypesWithGraphSONNoTypesForVertexProps() throws IOException {
-        final GraphWriter writer = getWriter(noTypesMapperV2d0);
-        final GraphReader reader = getReader(noTypesMapperV2d0);
-        final TinkerCat sampleGraph1 = TinkerCat.open();
-        TinkerFactory.generateModern(sampleGraph1);
-
-        sampleGraph1.addVertex(T.id, 100, "name", "kevin", "uuid", UUID.randomUUID());
-        try (final ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            writer.writeGraph(out, sampleGraph1);
-            final String json = out.toString();
-            final TinkerCat read = TinkerCat.open();
-            reader.readGraph(new ByteArrayInputStream(json.getBytes()), read);
+    @Throws(IOException::class)
+    fun shouldLoseTypesWithGraphSONNoTypesForVertexProps() {
+        val writer = getWriter(noTypesMapperV2d0)
+        val reader = getReader(noTypesMapperV2d0)
+        val sampleGraph1 = open()
+        generateModern(sampleGraph1)
+        sampleGraph1.addVertex(T.id, 100, "name", "kevin", "uuid", UUID.randomUUID())
+        ByteArrayOutputStream().use { out ->
+            writer.writeGraph(out, sampleGraph1)
+            val json = out.toString()
+            val read = open()
+            reader.readGraph(ByteArrayInputStream(json.toByteArray()), read)
             // Should fail on deserialized vertex prop.
-            assertFalse(approximateGraphsCheck(sampleGraph1, read));
+            Assert.assertFalse(approximateGraphsCheck(sampleGraph1, read))
         }
     }
 
@@ -179,20 +168,21 @@ public class TinkerCatGraphSONSerializerV2d0Test {
      * Asserts the approximateGraphsChecks function fails when expected. Edge ids.
      */
     @Test
-    public void shouldLoseTypesWithGraphSONNoTypesForEdgeIds() throws IOException {
-        final GraphWriter writer = getWriter(noTypesMapperV2d0);
-        final GraphReader reader = getReader(noTypesMapperV2d0);
-        final TinkerCat sampleGraph1 = TinkerCat.open();
-        TinkerFactory.generateModern(sampleGraph1);
-        final  Vertex v1 = sampleGraph1.addVertex(T.id, 100, "name", "kevin");
-        v1.addEdge("hello", sampleGraph1.traversal().V().has("name", "marko").next(), T.id, 101L);
-        try (final ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            writer.writeGraph(out, sampleGraph1);
-            final String json = out.toString();
-            final TinkerCat read = TinkerCat.open();
-            reader.readGraph(new ByteArrayInputStream(json.getBytes()), read);
+    @Throws(IOException::class)
+    fun shouldLoseTypesWithGraphSONNoTypesForEdgeIds() {
+        val writer = getWriter(noTypesMapperV2d0)
+        val reader = getReader(noTypesMapperV2d0)
+        val sampleGraph1 = open()
+        generateModern(sampleGraph1)
+        val v1 = sampleGraph1.addVertex(T.id, 100, "name", "kevin")
+        v1.addEdge("hello", sampleGraph1.traversal().V().has("name", "marko").next(), T.id, 101L)
+        ByteArrayOutputStream().use { out ->
+            writer.writeGraph(out, sampleGraph1)
+            val json = out.toString()
+            val read = open()
+            reader.readGraph(ByteArrayInputStream(json.toByteArray()), read)
             // Should fail on deserialized edge Id.
-            assertFalse(approximateGraphsCheck(sampleGraph1, read));
+            Assert.assertFalse(approximateGraphsCheck(sampleGraph1, read))
         }
     }
 
@@ -200,21 +190,23 @@ public class TinkerCatGraphSONSerializerV2d0Test {
      * Asserts the approximateGraphsChecks function fails when expected. Edge props.
      */
     @Test
-    public void shouldLoseTypesWithGraphSONNoTypesForEdgeProps() throws IOException {
-        final GraphWriter writer = getWriter(noTypesMapperV2d0);
-        final GraphReader reader = getReader(noTypesMapperV2d0);
-        final Graph sampleGraph1 = TinkerFactory.createModern();
-
-        final Vertex v1 = sampleGraph1.addVertex(T.id, 100, "name", "kevin");
-        v1.addEdge("hello", sampleGraph1.traversal().V().has("name", "marko").next(), T.id, 101,
-                "uuid", UUID.randomUUID());
-        try (final ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            writer.writeGraph(out, sampleGraph1);
-            final String json = out.toString();
-            final TinkerCat read = TinkerCat.open();
-            reader.readGraph(new ByteArrayInputStream(json.getBytes()), read);
+    @Throws(IOException::class)
+    fun shouldLoseTypesWithGraphSONNoTypesForEdgeProps() {
+        val writer = getWriter(noTypesMapperV2d0)
+        val reader = getReader(noTypesMapperV2d0)
+        val sampleGraph1: Graph = createModern()
+        val v1 = sampleGraph1.addVertex(T.id, 100, "name", "kevin")
+        v1.addEdge(
+            "hello", sampleGraph1.traversal().V().has("name", "marko").next(), T.id, 101,
+            "uuid", UUID.randomUUID()
+        )
+        ByteArrayOutputStream().use { out ->
+            writer.writeGraph(out, sampleGraph1)
+            val json = out.toString()
+            val read = open()
+            reader.readGraph(ByteArrayInputStream(json.toByteArray()), read)
             // Should fail on deserialized edge prop.
-            assertFalse(approximateGraphsCheck(sampleGraph1, read));
+            Assert.assertFalse(approximateGraphsCheck(sampleGraph1, read))
         }
     }
 
@@ -223,294 +215,264 @@ public class TinkerCatGraphSONSerializerV2d0Test {
      * properly.
      */
     @Test
-    public void shouldKeepTypesWhenDeserializingSerializedTinkerCat() throws IOException {
-        final TinkerCat tg = TinkerCat.open();
-
-        final Vertex v = tg.addVertex("vertexTest");
-        final UUID uuidProp = UUID.randomUUID();
-        final Duration durationProp = Duration.ofHours(3);
-        final Long longProp = 2L;
-        final ByteBuffer byteBufferProp = ByteBuffer.wrap("testbb".getBytes());
-        final InetAddress inetAddressProp = InetAddress.getByName("10.10.10.10");
+    @Throws(IOException::class)
+    fun shouldKeepTypesWhenDeserializingSerializedTinkerCat() {
+        val tg = open()
+        val v = tg.addVertex("vertexTest")
+        val uuidProp = UUID.randomUUID()
+        val durationProp = Duration.ofHours(3)
+        val longProp = 2L
+        val byteBufferProp = ByteBuffer.wrap("testbb".toByteArray())
+        val inetAddressProp = InetAddress.getByName("10.10.10.10")
 
         // One Java util type natively supported by Jackson
-        v.property("uuid", uuidProp);
+        v.property("uuid", uuidProp)
         // One custom time type added by the GraphSON module
-        v.property("duration", durationProp);
+        v.property("duration", durationProp)
         // One Java native type not handled by JSON natively
-        v.property("long", longProp);
+        v.property("long", longProp)
         // One Java util type added by GraphSON
-        v.property("bytebuffer", byteBufferProp);
-        v.property("inetaddress", inetAddressProp);
-
-
-        final GraphWriter writer = getWriter(defaultMapperV2d0);
-        final GraphReader reader = getReader(defaultMapperV2d0);
-        try (final ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            writer.writeGraph(out, tg);
-            final String json = out.toString();
-            final TinkerCat read = TinkerCat.open();
-            reader.readGraph(new ByteArrayInputStream(json.getBytes()), read);
-            final Vertex vRead = read.traversal().V().hasLabel("vertexTest").next();
-            assertEquals(vRead.property("uuid").value(), uuidProp);
-            assertEquals(vRead.property("duration").value(), durationProp);
-            assertEquals(vRead.property("long").value(), longProp);
-            assertEquals(vRead.property("bytebuffer").value(), byteBufferProp);
-            assertEquals(vRead.property("inetaddress").value(), inetAddressProp);
-        }
-    }
-
-
-    @Test
-    public void deserializersTestsVertex() {
-        final TinkerCat tg = TinkerCat.open();
-
-        final Vertex v = tg.addVertex("vertexTest");
-        v.property("born", LocalDateTime.of(1971, 1, 2, 20, 50));
-        v.property("dead", LocalDateTime.of(1971, 1, 7, 20, 50));
-
-        final GraphWriter writer = getWriter(defaultMapperV2d0);
-        final GraphReader reader = getReader(defaultMapperV2d0);
-
-        try (final ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            writer.writeObject(out, v);
-            final String json = out.toString();
-
-            // Object works, because there's a type in the payload now
-            // Vertex.class would work as well
-            // Anything else would not because we check the type in param here with what's in the JSON, for safety.
-            final Vertex vRead = (Vertex)reader.readObject(new ByteArrayInputStream(json.getBytes()), Object.class);
-            assertEquals(v, vRead);
-        } catch (IOException e) {
-            e.printStackTrace();
-            fail("Should not have thrown exception: " + e.getMessage());
+        v.property("bytebuffer", byteBufferProp)
+        v.property("inetaddress", inetAddressProp)
+        val writer = getWriter(defaultMapperV2d0)
+        val reader = getReader(defaultMapperV2d0)
+        ByteArrayOutputStream().use { out ->
+            writer.writeGraph(out, tg)
+            val json = out.toString()
+            val read = open()
+            reader.readGraph(ByteArrayInputStream(json.toByteArray()), read)
+            val vRead = read.traversal().V().hasLabel("vertexTest").next()
+            Assert.assertEquals(vRead.property<Any>("uuid").value(), uuidProp)
+            Assert.assertEquals(vRead.property<Any>("duration").value(), durationProp)
+            Assert.assertEquals(vRead.property<Any>("long").value(), longProp)
+            Assert.assertEquals(vRead.property<Any>("bytebuffer").value(), byteBufferProp)
+            Assert.assertEquals(vRead.property<Any>("inetaddress").value(), inetAddressProp)
         }
     }
 
     @Test
-    public void deserializersTestsEdge() {
-        final TinkerCat tg = TinkerCat.open();
+    fun deserializersTestsVertex() {
+        val tg = open()
+        val v = tg.addVertex("vertexTest")
+        v.property("born", LocalDateTime.of(1971, 1, 2, 20, 50))
+        v.property("dead", LocalDateTime.of(1971, 1, 7, 20, 50))
+        val writer = getWriter(defaultMapperV2d0)
+        val reader = getReader(defaultMapperV2d0)
+        try {
+            ByteArrayOutputStream().use { out ->
+                writer.writeObject(out, v)
+                val json = out.toString()
 
-        final Vertex v = tg.addVertex("vertexTest");
-        final Vertex v2 = tg.addVertex("vertexTest");
-
-        final Edge ed = v.addEdge("knows", v2, "time", LocalDateTime.now());
-
-        final GraphWriter writer = getWriter(defaultMapperV2d0);
-        final GraphReader reader = getReader(defaultMapperV2d0);
-
-        try (final ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            writer.writeObject(out, ed);
-            final String json = out.toString();
-
-            // Object works, because there's a type in the payload now
-            // Edge.class would work as well
-            // Anything else would not because we check the type in param here with what's in the JSON, for safety.
-            final Edge eRead = (Edge)reader.readObject(new ByteArrayInputStream(json.getBytes()), Object.class);
-            assertEquals(ed, eRead);
-        } catch (IOException e) {
-            e.printStackTrace();
-            fail("Should not have thrown exception: " + e.getMessage());
-        }
-    }
-
-    @Test
-    public void deserializersTestsTinkerCat() {
-        final TinkerCat tg = TinkerCat.open();
-
-        final Vertex v = tg.addVertex("vertexTest");
-        final Vertex v2 = tg.addVertex("vertexTest");
-
-        v.addEdge("knows", v2);
-
-        final GraphWriter writer = getWriter(defaultMapperV2d0);
-        final GraphReader reader = getReader(defaultMapperV2d0);
-
-        try (final ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            writer.writeObject(out, tg);
-            final String json = out.toString();
-
-            final Graph gRead = (Graph)reader.readObject(new ByteArrayInputStream(json.getBytes()), Object.class);
-            assertTrue(approximateGraphsCheck(tg, gRead));
-        } catch (IOException e) {
-            e.printStackTrace();
-            fail("Should not have thrown exception: " + e.getMessage());
-        }
-    }
-
-    @Test
-    public void deserializersTestsProperty() {
-        final TinkerCat tg = TinkerCat.open();
-
-        final Vertex v = tg.addVertex("vertexTest");
-        final Vertex v2 = tg.addVertex("vertexTest");
-
-        final Edge ed = v.addEdge("knows", v2);
-
-        final GraphWriter writer = getWriter(defaultMapperV2d0);
-        final GraphReader reader = getReader(defaultMapperV2d0);
-
-        final Property prop = ed.property("since", Year.parse("1993"));
-
-        try (final ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            writer.writeObject(out, prop);
-            final String json = out.toString();
-
-            final Property pRead = (Property)reader.readObject(new ByteArrayInputStream(json.getBytes()), Object.class);
-            //can't use equals here, because pRead is detached, its parent element has not been intentionally
-            //serialized and "equals()" checks that.
-            assertTrue(prop.key().equals(pRead.key()) && prop.value().equals(pRead.value()));
-        } catch (IOException e) {
-            e.printStackTrace();
-            fail("Should not have thrown exception: " + e.getMessage());
-        }
-    }
-
-    @Test
-    public void deserializersTestsVertexProperty() {
-        final TinkerCat tg = TinkerCat.open();
-
-        final Vertex v = tg.addVertex("vertexTest");
-
-        final GraphWriter writer = getWriter(defaultMapperV2d0);
-        final GraphReader reader = getReader(defaultMapperV2d0);
-
-        final VertexProperty prop = v.property("born", LocalDateTime.of(1971, 1, 2, 20, 50));
-
-        try (final ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            writer.writeObject(out, prop);
-            final String json = out.toString();
-
-            final VertexProperty vPropRead = (VertexProperty)reader.readObject(new ByteArrayInputStream(json.getBytes()), Object.class);
-            //only classes and ids are checked, that's ok, full vertex property ser/de
-            //is checked elsewhere.
-            assertEquals(prop, vPropRead);
-        } catch (IOException e) {
-            e.printStackTrace();
-            fail("Should not have thrown exception: " + e.getMessage());
-        }
-    }
-
-    @Test
-    public void deserializersTestsPath() {
-        final TinkerCat tg = TinkerFactory.createModern();
-
-        final GraphWriter writer = getWriter(defaultMapperV2d0);
-        final GraphReader reader = getReader(defaultMapperV2d0);
-
-        final Path p = tg.traversal().V(1).as("a").has("name").as("b").
-                out("knows").out("created").as("c").
-                has("name", "ripple").values("name").as("d").
-                identity().as("e").path().next();
-
-        try (final ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            writer.writeObject(out, p);
-            final String json = out.toString();
-
-            final Path pathRead = (Path)reader.readObject(new ByteArrayInputStream(json.getBytes()), Object.class);
-
-            for (int i = 0; i < p.objects().size(); i++) {
-                final Object o = p.objects().get(i);
-                final Object oRead = pathRead.objects().get(i);
-                assertEquals(o, oRead);
+                // Object works, because there's a type in the payload now
+                // Vertex.class would work as well
+                // Anything else would not because we check the type in param here with what's in the JSON, for safety.
+                val vRead = reader.readObject(ByteArrayInputStream(json.toByteArray()), Any::class.java) as Vertex
+                Assert.assertEquals(v, vRead)
             }
-            for (int i = 0; i < p.labels().size(); i++) {
-                final Set<String> o = p.labels().get(i);
-                final Set<String> oRead = pathRead.labels().get(i);
-                assertEquals(o, oRead);
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-            fail("Should not have thrown exception: " + e.getMessage());
+        } catch (e: IOException) {
+            e.printStackTrace()
+            Assert.fail("Should not have thrown exception: " + e.message)
         }
     }
 
     @Test
-    public void deserializersTestsMetrics() {
-        final TinkerCat tg = TinkerFactory.createModern();
+    fun deserializersTestsEdge() {
+        val tg = open()
+        val v = tg.addVertex("vertexTest")
+        val v2 = tg.addVertex("vertexTest")
+        val ed = v.addEdge("knows", v2, "time", LocalDateTime.now())
+        val writer = getWriter(defaultMapperV2d0)
+        val reader = getReader(defaultMapperV2d0)
+        try {
+            ByteArrayOutputStream().use { out ->
+                writer.writeObject(out, ed)
+                val json = out.toString()
 
-        final GraphWriter writer = getWriter(defaultMapperV2d0);
-        final GraphReader reader = getReader(defaultMapperV2d0);
+                // Object works, because there's a type in the payload now
+                // Edge.class would work as well
+                // Anything else would not because we check the type in param here with what's in the JSON, for safety.
+                val eRead = reader.readObject(ByteArrayInputStream(json.toByteArray()), Any::class.java) as Edge
+                Assert.assertEquals(ed, eRead)
+            }
+        } catch (e: IOException) {
+            e.printStackTrace()
+            Assert.fail("Should not have thrown exception: " + e.message)
+        }
+    }
 
-        final TraversalMetrics tm = tg.traversal().V(1).as("a").has("name").as("b").
-                out("knows").out("created").as("c").
-                has("name", "ripple").values("name").as("d").
-                identity().as("e").profile().next();
+    @Test
+    fun deserializersTestsTinkerCat() {
+        val tg = open()
+        val v = tg.addVertex("vertexTest")
+        val v2 = tg.addVertex("vertexTest")
+        v.addEdge("knows", v2)
+        val writer = getWriter(defaultMapperV2d0)
+        val reader = getReader(defaultMapperV2d0)
+        try {
+            ByteArrayOutputStream().use { out ->
+                writer.writeObject(out, tg)
+                val json = out.toString()
+                val gRead = reader.readObject(ByteArrayInputStream(json.toByteArray()), Any::class.java) as Graph
+                Assert.assertTrue(approximateGraphsCheck(tg, gRead))
+            }
+        } catch (e: IOException) {
+            e.printStackTrace()
+            Assert.fail("Should not have thrown exception: " + e.message)
+        }
+    }
 
-        final MutableMetrics m = new MutableMetrics(tm.getMetrics(0));
+    @Test
+    fun deserializersTestsProperty() {
+        val tg = open()
+        val v = tg.addVertex("vertexTest")
+        val v2 = tg.addVertex("vertexTest")
+        val ed = v.addEdge("knows", v2)
+        val writer = getWriter(defaultMapperV2d0)
+        val reader = getReader(defaultMapperV2d0)
+        val prop: Property<*> = ed.property("since", Year.parse("1993"))
+        try {
+            ByteArrayOutputStream().use { out ->
+                writer.writeObject(out, prop)
+                val json = out.toString()
+                val pRead = reader.readObject(ByteArrayInputStream(json.toByteArray()), Any::class.java) as Property<*>
+                //can't use equals here, because pRead is detached, its parent element has not been intentionally
+                //serialized and "equals()" checks that.
+                Assert.assertTrue(prop.key() == pRead.key() && prop.value() == pRead.value())
+            }
+        } catch (e: IOException) {
+            e.printStackTrace()
+            Assert.fail("Should not have thrown exception: " + e.message)
+        }
+    }
+
+    @Test
+    fun deserializersTestsVertexProperty() {
+        val tg = open()
+        val v = tg.addVertex("vertexTest")
+        val writer = getWriter(defaultMapperV2d0)
+        val reader = getReader(defaultMapperV2d0)
+        val prop: VertexProperty<*> = v.property("born", LocalDateTime.of(1971, 1, 2, 20, 50))
+        try {
+            ByteArrayOutputStream().use { out ->
+                writer.writeObject(out, prop)
+                val json = out.toString()
+                val vPropRead =
+                    reader.readObject(ByteArrayInputStream(json.toByteArray()), Any::class.java) as VertexProperty<*>
+                //only classes and ids are checked, that's ok, full vertex property ser/de
+                //is checked elsewhere.
+                Assert.assertEquals(prop, vPropRead)
+            }
+        } catch (e: IOException) {
+            e.printStackTrace()
+            Assert.fail("Should not have thrown exception: " + e.message)
+        }
+    }
+
+    @Test
+    fun deserializersTestsPath() {
+        val tg = createModern()
+        val writer = getWriter(defaultMapperV2d0)
+        val reader = getReader(defaultMapperV2d0)
+        val p = tg.traversal().V(1).`as`("a").has("name").`as`("b").out("knows").out("created").`as`("c")
+            .has("name", "ripple").values<Any>("name").`as`("d").identity().`as`("e").path().next()
+        try {
+            ByteArrayOutputStream().use { out ->
+                writer.writeObject(out, p)
+                val json = out.toString()
+                val pathRead = reader.readObject(ByteArrayInputStream(json.toByteArray()), Any::class.java) as Path
+                for (i in p.objects().indices) {
+                    val o = p.objects()[i]
+                    val oRead = pathRead.objects()[i]
+                    Assert.assertEquals(o, oRead)
+                }
+                for (i in p.labels().indices) {
+                    val o = p.labels()[i]
+                    val oRead = pathRead.labels()[i]
+                    Assert.assertEquals(o, oRead)
+                }
+            }
+        } catch (e: IOException) {
+            e.printStackTrace()
+            Assert.fail("Should not have thrown exception: " + e.message)
+        }
+    }
+
+    @Test
+    fun deserializersTestsMetrics() {
+        val tg = createModern()
+        val writer = getWriter(defaultMapperV2d0)
+        val reader = getReader(defaultMapperV2d0)
+        val tm = tg.traversal().V(1).`as`("a").has("name").`as`("b").out("knows").out("created").`as`("c")
+            .has("name", "ripple").values<Any>("name").`as`("d").identity().`as`("e").profile().next()
+        val m = MutableMetrics(tm.getMetrics(0))
         // making sure nested metrics are included in serde
-        m.addNested(new MutableMetrics(tm.getMetrics(1)));
-
-        try (final ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            writer.writeObject(out, m);
-            final String json = out.toString();
-
-            final Metrics metricsRead = (Metrics)reader.readObject(new ByteArrayInputStream(json.getBytes()), Object.class);
-            // toString should be enough to compare Metrics
-            assertTrue(m.toString().equals(metricsRead.toString()));
-        } catch (IOException e) {
-            e.printStackTrace();
-            fail("Should not have thrown exception: " + e.getMessage());
+        m.addNested(MutableMetrics(tm.getMetrics(1)))
+        try {
+            ByteArrayOutputStream().use { out ->
+                writer.writeObject(out, m)
+                val json = out.toString()
+                val metricsRead =
+                    reader.readObject(ByteArrayInputStream(json.toByteArray()), Any::class.java) as Metrics
+                // toString should be enough to compare Metrics
+                Assert.assertTrue(m.toString() == metricsRead.toString())
+            }
+        } catch (e: IOException) {
+            e.printStackTrace()
+            Assert.fail("Should not have thrown exception: " + e.message)
         }
     }
 
     @Test
-    public void deserializersTestsTraversalMetrics() {
-        final TinkerCat tg = TinkerFactory.createModern();
-
-        final GraphWriter writer = getWriter(defaultMapperV2d0);
-        final GraphReader reader = getReader(defaultMapperV2d0);
-
-        final TraversalMetrics tm = tg.traversal().V(1).as("a").has("name").as("b").
-                out("knows").out("created").as("c").
-                has("name", "ripple").values("name").as("d").
-                identity().as("e").profile().next();
-
-        try (final ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            writer.writeObject(out, tm);
-            final String json = out.toString();
-
-            final TraversalMetrics traversalMetricsRead = (TraversalMetrics)reader.readObject(new ByteArrayInputStream(json.getBytes()), Object.class);
-            // toString should be enough to compare TraversalMetrics
-            assertTrue(tm.toString().equals(traversalMetricsRead.toString()));
-        } catch (IOException e) {
-            e.printStackTrace();
-            fail("Should not have thrown exception: " + e.getMessage());
+    fun deserializersTestsTraversalMetrics() {
+        val tg = createModern()
+        val writer = getWriter(defaultMapperV2d0)
+        val reader = getReader(defaultMapperV2d0)
+        val tm = tg.traversal().V(1).`as`("a").has("name").`as`("b").out("knows").out("created").`as`("c")
+            .has("name", "ripple").values<Any>("name").`as`("d").identity().`as`("e").profile().next()
+        try {
+            ByteArrayOutputStream().use { out ->
+                writer.writeObject(out, tm)
+                val json = out.toString()
+                val traversalMetricsRead =
+                    reader.readObject(ByteArrayInputStream(json.toByteArray()), Any::class.java) as TraversalMetrics
+                // toString should be enough to compare TraversalMetrics
+                Assert.assertTrue(tm.toString() == traversalMetricsRead.toString())
+            }
+        } catch (e: IOException) {
+            e.printStackTrace()
+            Assert.fail("Should not have thrown exception: " + e.message)
         }
     }
 
     @Test
-    @org.junit.Ignore("https://issues.apache.org/jira/browse/TINKERPOP-1509")
-    public void deserializersTestsTree() {
-        final TinkerCat tg = TinkerFactory.createModern();
-
-        final GraphWriter writer = getWriter(defaultMapperV2d0);
-        final GraphReader reader = getReader(defaultMapperV2d0);
-
-        final Tree t = tg.traversal().V().out().out().tree().next();
-
-        try (final ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            writer.writeObject(out, t);
-            final String json = out.toString();
-
-            final Tree treeRead = (Tree)reader.readObject(new ByteArrayInputStream(json.getBytes()), Object.class);
-            //Map's equals should check each component of the tree recursively
-            //on each it will call "equals()" which for Vertices will compare ids, which
-            //is ok. Complete vertex deser is checked elsewhere.
-            assertEquals(t, treeRead);
-
-        } catch (IOException e) {
-            e.printStackTrace();
-            fail("Should not have thrown exception: " + e.getMessage());
+    @Ignore("https://issues.apache.org/jira/browse/TINKERPOP-1509")
+    fun deserializersTestsTree() {
+        val tg = createModern()
+        val writer = getWriter(defaultMapperV2d0)
+        val reader = getReader(defaultMapperV2d0)
+        val t = tg.traversal().V().out().out().tree().next()
+        try {
+            ByteArrayOutputStream().use { out ->
+                writer.writeObject(out, t)
+                val json = out.toString()
+                val treeRead = reader.readObject(ByteArrayInputStream(json.toByteArray()), Any::class.java) as Tree<*>
+                //Map's equals should check each component of the tree recursively
+                //on each it will call "equals()" which for Vertices will compare ids, which
+                //is ok. Complete vertex deser is checked elsewhere.
+                Assert.assertEquals(t, treeRead)
+            }
+        } catch (e: IOException) {
+            e.printStackTrace()
+            Assert.fail("Should not have thrown exception: " + e.message)
         }
     }
 
-    private GraphWriter getWriter(Mapper paramMapper) {
-        return GraphSONWriter.build().mapper(paramMapper).create();
+    private fun getWriter(paramMapper: Mapper<*>): GraphWriter {
+        return GraphSONWriter.build().mapper(paramMapper).create()
     }
 
-    private GraphReader getReader(Mapper paramMapper) {
-        return GraphSONReader.build().mapper(paramMapper).create();
+    private fun getReader(paramMapper: Mapper<*>): GraphReader {
+        return GraphSONReader.build().mapper(paramMapper).create()
     }
 
     /**
@@ -518,53 +480,50 @@ public class TinkerCatGraphSONSerializerV2d0Test {
      * and values and classes. Then same for edges. To use when serializing a Graph and deserializing the supposedly
      * same Graph.
      */
-    private boolean approximateGraphsCheck(Graph g1, Graph g2) {
-        final Iterator<Vertex> itV = g1.vertices();
-        final Iterator<Vertex> itVRead = g2.vertices();
-
+    private fun approximateGraphsCheck(g1: Graph, g2: Graph): Boolean {
+        val itV = g1.vertices()
+        val itVRead = g2.vertices()
         while (itV.hasNext()) {
-            final Vertex v = itV.next();
-            final Vertex vRead = itVRead.next();
+            val v = itV.next()
+            val vRead = itVRead.next()
 
             // Will only check IDs but that's 'good' enough.
-            if (!v.equals(vRead)) {
-                return false;
+            if (v != vRead) {
+                return false
             }
-
-            final Iterator itVP = v.properties();
-            final Iterator itVPRead = vRead.properties();
+            val itVP: Iterator<*> = v.properties<Any>()
+            val itVPRead: Iterator<*> = vRead.properties<Any>()
             while (itVP.hasNext()) {
-                final VertexProperty vp = (VertexProperty) itVP.next();
-                final VertexProperty vpRead = (VertexProperty) itVPRead.next();
-                if (!vp.value().equals(vpRead.value())
-                        || !vp.equals(vpRead)) {
-                    return false;
+                val vp = itVP.next() as VertexProperty<*>
+                val vpRead = itVPRead.next() as VertexProperty<*>
+                if (vp.value() != vpRead.value()
+                    || vp != vpRead
+                ) {
+                    return false
                 }
             }
         }
-
-        final Iterator<Edge> itE = g1.edges();
-        final Iterator<Edge> itERead = g2.edges();
-
+        val itE = g1.edges()
+        val itERead = g2.edges()
         while (itE.hasNext()) {
-            final Edge e = itE.next();
-            final Edge eRead = itERead.next();
+            val e = itE.next()
+            val eRead = itERead.next()
             // Will only check IDs but that's good enough.
-            if (!e.equals(eRead)) {
-                return false;
+            if (e != eRead) {
+                return false
             }
-
-            final Iterator itEP = e.properties();
-            final Iterator itEPRead = eRead.properties();
+            val itEP: Iterator<*> = e.properties<Any>()
+            val itEPRead: Iterator<*> = eRead.properties<Any>()
             while (itEP.hasNext()) {
-                final Property ep = (Property) itEP.next();
-                final Property epRead = (Property) itEPRead.next();
-                if (!ep.value().equals(epRead.value())
-                        || !ep.equals(epRead)) {
-                    return false;
+                val ep = itEP.next() as Property<*>
+                val epRead = itEPRead.next() as Property<*>
+                if (ep.value() != epRead.value()
+                    || ep != epRead
+                ) {
+                    return false
                 }
             }
         }
-        return true;
+        return true
     }
 }

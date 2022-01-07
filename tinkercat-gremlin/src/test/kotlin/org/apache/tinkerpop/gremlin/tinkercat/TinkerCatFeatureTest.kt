@@ -16,37 +16,39 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.tinkerpop.gremlin.tinkercat;
+package org.apache.tinkerpop.gremlin.tinkercat
 
-import com.google.inject.AbstractModule;
-import com.google.inject.Guice;
-import com.google.inject.Stage;
-import io.cucumber.guice.CucumberModules;
-import io.cucumber.junit.Cucumber;
-import io.cucumber.junit.CucumberOptions;
-import org.apache.tinkerpop.gremlin.features.AbstractGuiceFactory;
-import org.apache.tinkerpop.gremlin.features.World;
-import org.junit.runner.RunWith;
+import org.junit.runner.RunWith
+import io.cucumber.junit.Cucumber
+import org.apache.tinkerpop.gremlin.features.AbstractGuiceFactory
+import com.google.inject.Guice
+import io.cucumber.guice.CucumberModules
+import com.google.inject.AbstractModule
+import com.google.inject.Stage
+import io.cucumber.junit.CucumberOptions
+import org.apache.tinkerpop.gremlin.features.World
+import org.apache.tinkerpop.gremlin.tinkercat.TinkerCatWorld
 
-@RunWith(Cucumber.class)
+@RunWith(Cucumber::class)
 @CucumberOptions(
-        tags = "not @RemoteOnly and not @GraphComputerOnly and not @AllowNullPropertyValues",
-        glue = { "org.apache.tinkerpop.gremlin.features" },
-        objectFactory = TinkerCatFeatureTest.TinkerCatGuiceFactory.class,
-        features = { "../gremlin-test/features" },
-        plugin = {"progress", "junit:target/cucumber.xml"})
-public class TinkerCatFeatureTest {
+    tags = "not @RemoteOnly and not @GraphComputerOnly and not @AllowNullPropertyValues",
+    glue = ["org.apache.tinkerpop.gremlin.features"],
+    objectFactory = TinkerCatFeatureTest.TinkerCatGuiceFactory::class,
+    features = ["../gremlin-test/features"],
+    plugin = ["progress", "junit:target/cucumber.xml"]
+)
+class TinkerCatFeatureTest {
+    class TinkerCatGuiceFactory : AbstractGuiceFactory(
+        Guice.createInjector(
+            Stage.PRODUCTION,
+            CucumberModules.createScenarioModule(),
+            ServiceModule()
+        )
+    )
 
-    public static class TinkerCatGuiceFactory extends AbstractGuiceFactory {
-        public TinkerCatGuiceFactory() {
-            super(Guice.createInjector(Stage.PRODUCTION, CucumberModules.createScenarioModule(), new ServiceModule()));
-        }
-    }
-
-    public static final class ServiceModule extends AbstractModule {
-        @Override
-        protected void configure() {
-            bind(World.class).to(TinkerCatWorld.class);
+    class ServiceModule : AbstractModule() {
+        override fun configure() {
+            bind(World::class.java).to(TinkerCatWorld::class.java)
         }
     }
 }

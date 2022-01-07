@@ -16,47 +16,38 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.tinkerpop.gremlin.tinkercat.structure;
+package org.apache.tinkerpop.gremlin.tinkercat.structure
 
-import org.apache.tinkerpop.gremlin.structure.Element;
-import org.apache.tinkerpop.gremlin.structure.util.ElementHelper;
+import org.apache.tinkerpop.gremlin.structure.Element
+import org.apache.tinkerpop.gremlin.structure.util.ElementHelper
+import java.lang.IllegalStateException
 
 /**
  * @author Marko A. Rodriguez (http://markorodriguez.com)
  */
-public abstract class TinkerElement implements Element {
-
-    protected final Object id;
-    protected final String label;
-    protected boolean removed = false;
-
-    protected TinkerElement(final Object id, final String label) {
-        this.id = id;
-        this.label = label;
+abstract class TinkerElement protected constructor(protected val id: Any, protected val label: String) : Element {
+    @JvmField
+    var removed = false
+    override fun hashCode(): Int {
+        return ElementHelper.hashCode(this)
     }
 
-    @Override
-    public int hashCode() {
-        return ElementHelper.hashCode(this);
+    override fun id(): Any {
+        return id
     }
 
-    @Override
-    public Object id() {
-        return this.id;
+    override fun label(): String {
+        return label
     }
 
-    @Override
-    public String label() {
-        return this.label;
+    override fun equals(`object`: Any?): Boolean {
+        return ElementHelper.areEqual(this, `object`)
     }
 
-    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
-    @Override
-    public boolean equals(final Object object) {
-        return ElementHelper.areEqual(this, object);
-    }
-
-    protected static IllegalStateException elementAlreadyRemoved(final Class<? extends Element> clazz, final Object id) {
-        return new IllegalStateException(String.format("%s with id %s was removed.", clazz.getSimpleName(), id));
+    companion object {
+        @JvmStatic
+        protected fun elementAlreadyRemoved(clazz: Class<out Element?>, id: Any?): IllegalStateException {
+            return IllegalStateException(String.format("%s with id %s was removed.", clazz.simpleName, id))
+        }
     }
 }

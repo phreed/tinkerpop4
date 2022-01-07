@@ -16,20 +16,19 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.tinkerpop.gremlin.tinkercat.structure;
+package org.apache.tinkerpop.gremlin.tinkercat.structure
 
-import org.apache.tinkerpop.gremlin.GraphProviderClass;
-import org.apache.tinkerpop.gremlin.structure.StructureStandardSuite;
-import org.apache.tinkerpop.gremlin.tinkercat.TinkerCatProvider;
-import org.junit.runner.RunWith;
+import org.junit.runner.RunWith
+import org.apache.tinkerpop.gremlin.structure.StructureStandardSuite
+import org.apache.tinkerpop.gremlin.GraphProviderClass
+import org.apache.tinkerpop.gremlin.tinkercat.TinkerCatProvider
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat
 
 /**
  * Executes the Standard Gremlin Structure Test Suite using TinkerCat.
  *
  * @author Stephen Mallette (http://stephen.genoprime.com)
  */
-@RunWith(StructureStandardSuite.class)
-@GraphProviderClass(provider = TinkerCatProvider.class, graph = TinkerCat.class)
-public class TinkerCatStructureStandardTest {
-
-}
+@RunWith(StructureStandardSuite::class)
+@GraphProviderClass(provider = TinkerCatProvider::class, graph = TinkerCat::class)
+class TinkerCatStructureStandardTest 

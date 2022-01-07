@@ -16,115 +16,128 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.tinkerpop.gremlin.tinkercat.process.computer;
+package org.apache.tinkerpop.gremlin.tinkercat.process.computer
 
-import org.apache.tinkerpop.gremlin.process.computer.MessageCombiner;
-import org.apache.tinkerpop.gremlin.process.computer.MessageScope;
-import org.apache.tinkerpop.gremlin.process.computer.Messenger;
-import org.apache.tinkerpop.gremlin.process.computer.util.VertexProgramHelper;
-import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
-import org.apache.tinkerpop.gremlin.process.traversal.step.map.VertexStep;
-import org.apache.tinkerpop.gremlin.process.traversal.step.sideEffect.StartStep;
-import org.apache.tinkerpop.gremlin.process.traversal.util.TraversalHelper;
-import org.apache.tinkerpop.gremlin.structure.Direction;
-import org.apache.tinkerpop.gremlin.structure.Edge;
-import org.apache.tinkerpop.gremlin.structure.Vertex;
-import org.apache.tinkerpop.gremlin.util.iterator.IteratorUtils;
-import org.apache.tinkerpop.gremlin.util.iterator.MultiIterator;
-
-import java.util.Iterator;
-import java.util.Optional;
-import java.util.Queue;
-import java.util.Spliterator;
-import java.util.Spliterators;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
+import org.apache.tinkerpop.gremlin.process.computer.MessageCombiner
+import org.apache.tinkerpop.gremlin.util.iterator.MultiIterator
+import org.apache.tinkerpop.gremlin.process.computer.MessageScope
+import org.apache.tinkerpop.gremlin.process.computer.Messenger
+import java.util.stream.StreamSupport
+import org.apache.tinkerpop.gremlin.process.computer.util.VertexProgramHelper
+import org.apache.tinkerpop.gremlin.process.traversal.Traversal
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentLinkedQueue
+import org.apache.tinkerpop.gremlin.process.traversal.step.map.VertexStep
+import org.apache.tinkerpop.gremlin.process.traversal.util.TraversalHelper
+import org.apache.tinkerpop.gremlin.structure.Direction
+import org.apache.tinkerpop.gremlin.structure.Edge
+import org.apache.tinkerpop.gremlin.structure.Vertex
+import java.util.*
+import java.util.function.Consumer
+import java.util.stream.Stream
 
 /**
  * @author Marko A. Rodriguez (http://markorodriguez.com)
  */
-public final class TinkerMessenger<M> implements Messenger<M> {
+class TinkerMessenger<M>(
+    private val vertex: Vertex,
+    private val messageBoard: TinkerMessageBoard<M>,
+    combiner: Optional<MessageCombiner<M>?>
+) : Messenger<M> {
+    private val combiner: MessageCombiner<M>?
 
-    private final Vertex vertex;
-    private final TinkerMessageBoard<M> messageBoard;
-    private final MessageCombiner<M> combiner;
-
-    public TinkerMessenger(final Vertex vertex, final TinkerMessageBoard<M> messageBoard, final Optional<MessageCombiner<M>> combiner) {
-        this.vertex = vertex;
-        this.messageBoard = messageBoard;
-        this.combiner = combiner.isPresent() ? combiner.get() : null;
+    init {
+        this.combiner = if (combiner.isPresent) combiner.get() else null
     }
 
-    @Override
-    public Iterator<M> receiveMessages() {
-        final MultiIterator<M> multiIterator = new MultiIterator<>();
-        for (final MessageScope messageScope : this.messageBoard.receiveMessages.keySet()) {
+    override fun receiveMessages(): Iterator<M> {
+        val multiIterator = MultiIterator<M>()
+        for (messageScope in messageBoard.receiveMessages.keys) {
 //        for (final MessageScope messageScope : this.messageBoard.previousMessageScopes) {
-            if (messageScope instanceof MessageScope.Local) {
-                final MessageScope.Local<M> localMessageScope = (MessageScope.Local<M>) messageScope;
-                final Traversal.Admin<Vertex, Edge> incidentTraversal = TinkerMessenger.setVertexStart(localMessageScope.getIncidentTraversal().get().asAdmin(), this.vertex);
-                final Direction direction = TinkerMessenger.getDirection(incidentTraversal);
-                final Edge[] edge = new Edge[1]; // simulates storage side-effects available in Gremlin, but not Java streams
-                multiIterator.addIterator(StreamSupport.stream(Spliterators.spliteratorUnknownSize(VertexProgramHelper.reverse(incidentTraversal.asAdmin()), Spliterator.IMMUTABLE | Spliterator.SIZED), false)
-                        .map((Edge e) -> {
-                            edge[0] = e;
-                            Vertex vv;
-                            if (direction.equals(Direction.IN) || direction.equals(Direction.OUT)) {
-                                vv = e.vertices(direction).next();
-                            } else {
-                                vv = e.outVertex() == this.vertex ? e.inVertex() : e.outVertex();
-                            }
-                            return this.messageBoard.receiveMessages.get(messageScope).get(vv);
-                        })
-                        .filter(q -> null != q)
-                        .flatMap(Queue::stream)
-                        .map(message -> localMessageScope.getEdgeFunction().apply(message, edge[0]))
-                        .iterator());
-
+            if (messageScope is MessageScope.Local<*>) {
+                val localMessageScope = messageScope as MessageScope.Local<M>
+                val incidentTraversal = setVertexStart<Traversal.Admin<Vertex, Edge>>(
+                    localMessageScope.getIncidentTraversal().get().asAdmin(), vertex
+                )
+                val direction = getDirection(incidentTraversal)
+                val edge =
+                    arrayOfNulls<Edge>(1) // simulates storage side-effects available in Gremlin, but not Java streams
+                multiIterator.addIterator(StreamSupport.stream(
+                    Spliterators.spliteratorUnknownSize(
+                        VertexProgramHelper.reverse(
+                            incidentTraversal.asAdmin()
+                        ), Spliterator.IMMUTABLE or Spliterator.SIZED
+                    ), false
+                )
+                    .map { e: Edge ->
+                        edge[0] = e
+                        val vv: Vertex
+                        vv = if (direction == Direction.IN || direction == Direction.OUT) {
+                            e.vertices(direction).next()
+                        } else {
+                            if (e.outVertex() === vertex) e.inVertex() else e.outVertex()
+                        }
+                        messageBoard.receiveMessages[messageScope]!![vv]
+                    }
+                    .filter { q: Queue<M>? -> null != q }
+                    .flatMap<M> { obj: Queue<*> -> obj.stream() }
+                    .map { message: M -> localMessageScope.getEdgeFunction().apply(message, edge[0]) }
+                    .iterator())
             } else {
-                multiIterator.addIterator(Stream.of(this.vertex)
-                        .map(this.messageBoard.receiveMessages.get(messageScope)::get)
-                        .filter(q -> null != q)
-                        .flatMap(Queue::stream)
-                        .iterator());
+                multiIterator.addIterator(
+                    Stream.of(vertex)
+                        .map { key: Any? -> messageBoard.receiveMessages[messageScope]!![key] }
+                        .filter { q: Queue<M>? -> null != q }
+                        .flatMap<M> { obj: Queue<*> -> obj.stream() }
+                        .iterator())
             }
         }
-        return multiIterator;
+        return multiIterator
     }
 
-    @Override
-    public void sendMessage(final MessageScope messageScope, final M message) {
+    override fun sendMessage(messageScope: MessageScope, message: M) {
 //        this.messageBoard.currentMessageScopes.add(messageScope);
-        if (messageScope instanceof MessageScope.Local) {
-            addMessage(this.vertex, message, messageScope);
+        if (messageScope is MessageScope.Local<*>) {
+            addMessage(vertex, message, messageScope)
         } else {
-            ((MessageScope.Global) messageScope).vertices().forEach(v -> addMessage(v, message, messageScope));
+            (messageScope as MessageScope.Global).vertices()
+                .forEach(Consumer { v: Vertex -> addMessage(v, message, messageScope) })
         }
     }
 
-    private void addMessage(final Vertex vertex, final M message, MessageScope messageScope) {
-        this.messageBoard.sendMessages.compute(messageScope, (ms, messages) -> {
-            if(null==messages) messages = new ConcurrentHashMap<>();
-            return messages;
-        });
-        this.messageBoard.sendMessages.get(messageScope).compute(vertex, (v, queue) -> {
-            if (null == queue) queue = new ConcurrentLinkedQueue<>();
-            queue.add(null != this.combiner && !queue.isEmpty() ? this.combiner.combine(queue.remove(), message) : message);
-            return queue;
-        });
+    private fun addMessage(vertex: Vertex, message: M, messageScope: MessageScope) {
+        messageBoard.sendMessages.compute(messageScope) { ms: MessageScope?, messages: MutableMap<Vertex?, out Queue<M?>?>? ->
+            if (null == messages) messages = ConcurrentHashMap<Any?, Any?>()
+            messages
+        }
+        messageBoard.sendMessages[messageScope].compute(vertex) { v: Vertex?, queue: Queue<M>? ->
+            if (null == queue) queue = ConcurrentLinkedQueue<Any>()
+            queue.add(if (null != combiner && !queue.isEmpty()) combiner.combine(queue.remove(), message) else message)
+            queue
+        }
     }
 
-    ///////////
+    companion object {
+        ///////////
+        private fun <T : Traversal.Admin<Vertex?, Edge?>?> setVertexStart(
+            incidentTraversal: Traversal.Admin<Vertex, Edge>,
+            vertex: Vertex
+        ): T {
+            incidentTraversal.addStart(
+                incidentTraversal.traverserGenerator.generate(
+                    vertex,
+                    incidentTraversal.startStep,
+                    1L
+                )
+            )
+            return incidentTraversal as T
+        }
 
-    private static <T extends Traversal.Admin<Vertex, Edge>> T setVertexStart(final Traversal.Admin<Vertex, Edge> incidentTraversal, final Vertex vertex) {
-        incidentTraversal.addStart(incidentTraversal.getTraverserGenerator().generate(vertex,incidentTraversal.getStartStep(),1l));
-        return (T) incidentTraversal;
-    }
-
-    private static Direction getDirection(final Traversal.Admin<Vertex, Edge> incidentTraversal) {
-        final VertexStep step = TraversalHelper.getLastStepOfAssignableClass(VertexStep.class, incidentTraversal).get();
-        return step.getDirection();
+        private fun getDirection(incidentTraversal: Traversal.Admin<Vertex, Edge>): Direction {
+            val step = TraversalHelper.getLastStepOfAssignableClass(
+                VertexStep::class.java, incidentTraversal
+            ).get()
+            return step.direction
+        }
     }
 }

@@ -16,50 +16,37 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.tinkerpop.gremlin.tinkercat.structure;
+package org.apache.tinkerpop.gremlin.tinkercat.structure
 
-import org.apache.tinkerpop.gremlin.structure.Graph;
-import org.apache.tinkerpop.gremlin.structure.util.GraphVariableHelper;
-import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
-
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import org.apache.tinkerpop.gremlin.structure.Graph
+import java.util.concurrent.ConcurrentHashMap
+import org.apache.tinkerpop.gremlin.structure.util.GraphVariableHelper
+import org.apache.tinkerpop.gremlin.structure.util.StringFactory
+import java.util.*
 
 /**
  * @author Marko A. Rodriguez (http://markorodriguez.com)
  */
-public final class TinkerCatVariables implements Graph.Variables {
-
-    private final Map<String, Object> variables = new ConcurrentHashMap<>();
-
-    public TinkerCatVariables() {
-
+class TinkerCatVariables : Graph.Variables {
+    private val variables: MutableMap<String, Any> = ConcurrentHashMap()
+    override fun keys(): Set<String> {
+        return variables.keys
     }
 
-    @Override
-    public Set<String> keys() {
-        return this.variables.keySet();
+    override fun <R> get(key: String): Optional<R> {
+        return Optional.ofNullable(variables[key] as R?)
     }
 
-    @Override
-    public <R> Optional<R> get(final String key) {
-        return Optional.ofNullable((R) this.variables.get(key));
+    override fun remove(key: String) {
+        variables.remove(key)
     }
 
-    @Override
-    public void remove(final String key) {
-        this.variables.remove(key);
+    override fun set(key: String, value: Any) {
+        GraphVariableHelper.validateVariable(key, value)
+        variables[key] = value
     }
 
-    @Override
-    public void set(final String key, final Object value) {
-        GraphVariableHelper.validateVariable(key, value);
-        this.variables.put(key, value);
-    }
-
-    public String toString() {
-        return StringFactory.graphVariablesString(this);
+    override fun toString(): String {
+        return StringFactory.graphVariablesString(this)
     }
 }

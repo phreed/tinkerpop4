@@ -16,132 +16,131 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.tinkerpop.gremlin.tinkercat.process.computer;
+package org.apache.tinkerpop.gremlin.tinkercat.process.computer
 
-import org.apache.commons.lang3.concurrent.BasicThreadFactory;
-import org.apache.tinkerpop.gremlin.process.computer.MapReduce;
-import org.apache.tinkerpop.gremlin.process.computer.VertexProgram;
-import org.apache.tinkerpop.gremlin.process.computer.util.MapReducePool;
-import org.apache.tinkerpop.gremlin.process.computer.util.VertexProgramPool;
-import org.apache.tinkerpop.gremlin.structure.Vertex;
-import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat;
-import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerHelper;
-import org.apache.tinkerpop.gremlin.util.function.TriConsumer;
-
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Queue;
-import java.util.concurrent.CompletionService;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ExecutorCompletionService;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.function.Consumer;
+import org.apache.commons.lang3.concurrent.BasicThreadFactory
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat
+import java.lang.AutoCloseable
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.CompletionService
+import org.apache.tinkerpop.gremlin.process.computer.util.VertexProgramPool
+import org.apache.tinkerpop.gremlin.process.computer.util.MapReducePool
+import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.Executors
+import java.util.concurrent.ExecutorCompletionService
+import org.apache.tinkerpop.gremlin.process.computer.VertexProgram
+import org.apache.tinkerpop.gremlin.process.computer.MapReduce
+import org.apache.tinkerpop.gremlin.structure.Vertex
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerHelper
+import org.apache.tinkerpop.gremlin.util.function.TriConsumer
+import java.lang.Exception
+import kotlin.Throws
+import java.lang.InterruptedException
+import java.lang.IllegalStateException
+import java.util.*
+import java.util.function.Consumer
 
 /**
  * @author Marko A. Rodriguez (http://markorodriguez.com)
  * @author Stephen Mallette (http://stephen.genoprime.com)
  */
-public final class TinkerWorkerPool implements AutoCloseable {
+class TinkerWorkerPool(graph: TinkerCat, memory: TinkerMemory?, private val numberOfWorkers: Int) : AutoCloseable {
+    private val workerPool: ExecutorService
+    private val completionService: CompletionService<Any?>
+    private var vertexProgramPool: VertexProgramPool? = null
+    private var mapReducePool: MapReducePool? = null
+    private val workerMemoryPool: Queue<TinkerWorkerMemory> = ConcurrentLinkedQueue()
+    private val workerVertices: MutableList<MutableList<Vertex>> = ArrayList()
 
-    private static final BasicThreadFactory THREAD_FACTORY_WORKER = new BasicThreadFactory.Builder().namingPattern("tinker-worker-%d").build();
-
-    private final int numberOfWorkers;
-    private final ExecutorService workerPool;
-    private final CompletionService<Object> completionService;
-
-    private VertexProgramPool vertexProgramPool;
-    private MapReducePool mapReducePool;
-    private final Queue<TinkerWorkerMemory> workerMemoryPool = new ConcurrentLinkedQueue<>();
-    private final List<List<Vertex>> workerVertices = new ArrayList<>();
-
-    public TinkerWorkerPool(final TinkerCat graph, final TinkerMemory memory, final int numberOfWorkers) {
-        this.numberOfWorkers = numberOfWorkers;
-        this.workerPool = Executors.newFixedThreadPool(numberOfWorkers, THREAD_FACTORY_WORKER);
-        this.completionService = new ExecutorCompletionService<>(this.workerPool);
-        for (int i = 0; i < this.numberOfWorkers; i++) {
-            this.workerMemoryPool.add(new TinkerWorkerMemory(memory));
-            this.workerVertices.add(new ArrayList<>());
+    init {
+        workerPool = Executors.newFixedThreadPool(numberOfWorkers, THREAD_FACTORY_WORKER)
+        completionService = ExecutorCompletionService(workerPool)
+        for (i in 0 until numberOfWorkers) {
+            workerMemoryPool.add(TinkerWorkerMemory(memory!!))
+            workerVertices.add(ArrayList())
         }
-        int batchSize = TinkerHelper.getVertices(graph).size() / this.numberOfWorkers;
-        if (0 == batchSize)
-            batchSize = 1;
-        int counter = 0;
-        int index = 0;
-
-        List<Vertex> currentWorkerVertices = this.workerVertices.get(index);
-        final Iterator<Vertex> iterator = graph.vertices();
+        var batchSize = TinkerHelper.getVertices(graph).size / numberOfWorkers
+        if (0 == batchSize) batchSize = 1
+        var counter = 0
+        var index = 0
+        var currentWorkerVertices = workerVertices[index]
+        val iterator = graph.vertices()
         while (iterator.hasNext()) {
-            final Vertex vertex = iterator.next();
-            if (counter++ < batchSize || index == this.workerVertices.size() - 1) {
-                currentWorkerVertices.add(vertex);
+            val vertex = iterator.next()
+            if (counter++ < batchSize || index == workerVertices.size - 1) {
+                currentWorkerVertices.add(vertex)
             } else {
-                currentWorkerVertices = this.workerVertices.get(++index);
-                currentWorkerVertices.add(vertex);
-                counter = 1;
+                currentWorkerVertices = workerVertices[++index]
+                currentWorkerVertices.add(vertex)
+                counter = 1
             }
         }
     }
 
-    public void setVertexProgram(final VertexProgram vertexProgram) {
-        this.vertexProgramPool = new VertexProgramPool(vertexProgram, this.numberOfWorkers);
+    fun setVertexProgram(vertexProgram: VertexProgram<*>?) {
+        vertexProgramPool = VertexProgramPool(vertexProgram, numberOfWorkers)
     }
 
-    public void setMapReduce(final MapReduce mapReduce) {
-        this.mapReducePool = new MapReducePool(mapReduce, this.numberOfWorkers);
+    fun setMapReduce(mapReduce: MapReduce<*, *, *, *, *>?) {
+        mapReducePool = MapReducePool(mapReduce, numberOfWorkers)
     }
 
-    public void executeVertexProgram(final TriConsumer<Iterator<Vertex>, VertexProgram, TinkerWorkerMemory> worker) throws InterruptedException {
-        for (int i = 0; i < this.numberOfWorkers; i++) {
-            final int index = i;
-            this.completionService.submit(() -> {
-                final VertexProgram vp = this.vertexProgramPool.take();
-                final TinkerWorkerMemory workerMemory = this.workerMemoryPool.poll();
-                final List<Vertex> vertices = this.workerVertices.get(index);
-                worker.accept(vertices.iterator(), vp, workerMemory);
-                this.vertexProgramPool.offer(vp);
-                this.workerMemoryPool.offer(workerMemory);
-                return null;
-            });
+    @Throws(InterruptedException::class)
+    fun executeVertexProgram(worker: TriConsumer<Iterator<Vertex?>?, VertexProgram<*>?, TinkerWorkerMemory?>) {
+        for (i in 0 until numberOfWorkers) {
+            completionService.submit {
+                val vp = vertexProgramPool!!.take()
+                val workerMemory = workerMemoryPool.poll()
+                val vertices: List<Vertex> = workerVertices[i]
+                worker.accept(vertices.iterator(), vp, workerMemory)
+                vertexProgramPool!!.offer(vp)
+                workerMemoryPool.offer(workerMemory)
+                null
+            }
         }
-        for (int i = 0; i < this.numberOfWorkers; i++) {
+        for (i in 0 until numberOfWorkers) {
             try {
-                this.completionService.take().get();
-            } catch (InterruptedException ie) {
-                throw ie;
-            } catch (final Exception e) {
-                throw new IllegalStateException(e.getMessage(), e);
+                completionService.take().get()
+            } catch (ie: InterruptedException) {
+                throw ie
+            } catch (e: Exception) {
+                throw IllegalStateException(e.message, e)
             }
         }
     }
 
-    public void executeMapReduce(final Consumer<MapReduce> worker) throws InterruptedException {
-        for (int i = 0; i < this.numberOfWorkers; i++) {
-            this.completionService.submit(() -> {
-                final MapReduce mr = this.mapReducePool.take();
-                worker.accept(mr);
-                this.mapReducePool.offer(mr);
-                return null;
-            });
+    @Throws(InterruptedException::class)
+    fun executeMapReduce(worker: Consumer<MapReduce<*, *, *, *, *>?>) {
+        for (i in 0 until numberOfWorkers) {
+            completionService.submit {
+                val mr = mapReducePool!!.take()
+                worker.accept(mr)
+                mapReducePool!!.offer(mr)
+                null
+            }
         }
-        for (int i = 0; i < this.numberOfWorkers; i++) {
+        for (i in 0 until numberOfWorkers) {
             try {
-                this.completionService.take().get();
-            } catch (InterruptedException ie) {
-                throw ie;
-            } catch (final Exception e) {
-                throw new IllegalStateException(e.getMessage(), e);
+                completionService.take().get()
+            } catch (ie: InterruptedException) {
+                throw ie
+            } catch (e: Exception) {
+                throw IllegalStateException(e.message, e)
             }
         }
     }
 
-    public void closeNow() throws Exception {
-        this.workerPool.shutdownNow();
+    @Throws(Exception::class)
+    fun closeNow() {
+        workerPool.shutdownNow()
     }
 
-    @Override
-    public void close() throws Exception {
-        this.workerPool.shutdown();
+    @Throws(Exception::class)
+    override fun close() {
+        workerPool.shutdown()
+    }
+
+    companion object {
+        private val THREAD_FACTORY_WORKER = BasicThreadFactory.Builder().namingPattern("tinker-worker-%d").build()
     }
 }

@@ -16,66 +16,67 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.tinkerpop.gremlin.tinkercat.structure;
+package org.apache.tinkerpop.gremlin.tinkercat.structure
 
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
-
-import java.util.UUID;
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat.IdManager.convert
+import org.junit.rules.ExpectedException
+import java.lang.IllegalArgumentException
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat
+import org.junit.Rule
+import org.junit.Test
+import java.util.*
 
 /**
  * @author Stephen Mallette (http://stephen.genoprime.com)
  */
-public class IdManagerTest {
+class IdManagerTest {
     @Rule
-    public ExpectedException exceptionRule = ExpectedException.none();
-
+    var exceptionRule = ExpectedException.none()
     @Test
-    public void shouldGenerateNiceErrorOnConversionOfStringToInt() {
-        exceptionRule.expect(IllegalArgumentException.class);
-        exceptionRule.expectMessage("Expected an id that is convertible to");
-        final TinkerCat.IdManager manager = TinkerCat.DefaultIdManager.INTEGER;
-        manager.convert("string-id");
+    fun shouldGenerateNiceErrorOnConversionOfStringToInt() {
+        exceptionRule.expect(IllegalArgumentException::class.java)
+        exceptionRule.expectMessage("Expected an id that is convertible to")
+        val manager: TinkerCat.IdManager<*> = TinkerCat.DefaultIdManager.INTEGER
+        manager.convert("string-id")
     }
 
     @Test
-    public void shouldGenerateNiceErrorOnConversionOfJunkToInt() {
-        exceptionRule.expect(IllegalArgumentException.class);
-        exceptionRule.expectMessage("Expected an id that is convertible to");
-        final TinkerCat.IdManager manager = TinkerCat.DefaultIdManager.INTEGER;
-        manager.convert(UUID.randomUUID());
+    fun shouldGenerateNiceErrorOnConversionOfJunkToInt() {
+        exceptionRule.expect(IllegalArgumentException::class.java)
+        exceptionRule.expectMessage("Expected an id that is convertible to")
+        val manager: TinkerCat.IdManager<*> = TinkerCat.DefaultIdManager.INTEGER
+        manager.convert(UUID.randomUUID())
     }
 
     @Test
-    public void shouldGenerateNiceErrorOnConversionOfStringToLong() {
-        exceptionRule.expect(IllegalArgumentException.class);
-        exceptionRule.expectMessage("Expected an id that is convertible to");
-        final TinkerCat.IdManager manager = TinkerCat.DefaultIdManager.LONG;
-        manager.convert("string-id");
+    fun shouldGenerateNiceErrorOnConversionOfStringToLong() {
+        exceptionRule.expect(IllegalArgumentException::class.java)
+        exceptionRule.expectMessage("Expected an id that is convertible to")
+        val manager: TinkerCat.IdManager<*> = TinkerCat.DefaultIdManager.LONG
+        manager.convert("string-id")
     }
 
     @Test
-    public void shouldGenerateNiceErrorOnConversionOfJunkToLong() {
-        exceptionRule.expect(IllegalArgumentException.class);
-        exceptionRule.expectMessage("Expected an id that is convertible to");
-        final TinkerCat.IdManager manager = TinkerCat.DefaultIdManager.LONG;
-        manager.convert(UUID.randomUUID());
+    fun shouldGenerateNiceErrorOnConversionOfJunkToLong() {
+        exceptionRule.expect(IllegalArgumentException::class.java)
+        exceptionRule.expectMessage("Expected an id that is convertible to")
+        val manager: TinkerCat.IdManager<*> = TinkerCat.DefaultIdManager.LONG
+        manager.convert(UUID.randomUUID())
     }
 
     @Test
-    public void shouldGenerateNiceErrorOnConversionOfStringToUUID() {
-        exceptionRule.expect(IllegalArgumentException.class);
-        exceptionRule.expectMessage("Expected an id that is convertible to");
-        final TinkerCat.IdManager manager = TinkerCat.DefaultIdManager.UUID;
-        manager.convert("string-id");
+    fun shouldGenerateNiceErrorOnConversionOfStringToUUID() {
+        exceptionRule.expect(IllegalArgumentException::class.java)
+        exceptionRule.expectMessage("Expected an id that is convertible to")
+        val manager: TinkerCat.IdManager<*> = TinkerCat.DefaultIdManager.UUID
+        manager.convert("string-id")
     }
 
     @Test
-    public void shouldGenerateNiceErrorOnConversionOfJunkToUUID() {
-        exceptionRule.expect(IllegalArgumentException.class);
-        exceptionRule.expectMessage("Expected an id that is convertible to");
-        final TinkerCat.IdManager manager = TinkerCat.DefaultIdManager.UUID;
-        manager.convert(Double.NaN);
+    fun shouldGenerateNiceErrorOnConversionOfJunkToUUID() {
+        exceptionRule.expect(IllegalArgumentException::class.java)
+        exceptionRule.expectMessage("Expected an id that is convertible to")
+        val manager: TinkerCat.IdManager<*> = TinkerCat.DefaultIdManager.UUID
+        manager.convert(Double.NaN)
     }
 }

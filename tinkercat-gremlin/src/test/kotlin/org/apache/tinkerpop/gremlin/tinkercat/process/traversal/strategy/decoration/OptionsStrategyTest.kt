@@ -16,51 +16,51 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.tinkerpop.gremlin.tinkercat.process.traversal.strategy.decoration;
+package org.apache.tinkerpop.gremlin.tinkercat.process.traversal.strategy.decoration
 
-import org.apache.tinkerpop.gremlin.process.traversal.Traverser;
-import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal;
-import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
-import org.apache.tinkerpop.gremlin.process.traversal.step.map.ScalarMapStep;
-import org.apache.tinkerpop.gremlin.process.traversal.strategy.decoration.OptionsStrategy;
-import org.apache.tinkerpop.gremlin.structure.Graph;
-import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat;
-import org.junit.Test;
-
-import java.util.Arrays;
-import java.util.Collection;
-
-import static org.hamcrest.Matchers.contains;
-import static org.hamcrest.MatcherAssert.assertThat;
+import org.apache.tinkerpop.gremlin.process.traversal.Traverser
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat.Companion.open
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat
+import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource
+import org.apache.tinkerpop.gremlin.process.traversal.strategy.decoration.OptionsStrategy
+import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal
+import org.apache.tinkerpop.gremlin.process.traversal.step.map.ScalarMapStep
+import org.apache.tinkerpop.gremlin.structure.Graph
+import org.hamcrest.MatcherAssert
+import org.hamcrest.Matchers
+import org.junit.Test
+import java.util.Arrays
 
 /**
  * @author Stephen Mallette (http://stephen.genoprime.com)
  */
-public class OptionsStrategyTest {
-
+class OptionsStrategyTest {
     @Test
-    public void shouldAddOptionsToTraversal() {
-        final Graph graph = TinkerCat.open();
-        final GraphTraversalSource optionedG = graph.traversal().withStrategies(OptionsStrategy.build().with("a", "test").with("b").create());
-        assertOptions(optionedG);
+    fun shouldAddOptionsToTraversal() {
+        val graph: Graph = open()
+        val optionedG = graph.traversal().withStrategies(OptionsStrategy.build().with("a", "test").with("b").create())
+        assertOptions(optionedG)
     }
 
     @Test
-    public void shouldAddOptionsToTraversalUsingWith() {
-        final Graph graph = TinkerCat.open();
-        final GraphTraversalSource optionedG = graph.traversal().with("a", "test").with("b");
-        assertOptions(optionedG);
+    fun shouldAddOptionsToTraversalUsingWith() {
+        val graph: Graph = open()
+        val optionedG = graph.traversal().with("a", "test").with("b")
+        assertOptions(optionedG)
     }
 
-    private static void assertOptions(final GraphTraversalSource optionedG) {
-        GraphTraversal t = optionedG.inject(1);
-        t = t.asAdmin().addStep(new ScalarMapStep<Object, Object>(t.asAdmin()) {
-            @Override
-            protected Object map(final Traverser.Admin<Object> traverser) {
-                final OptionsStrategy strategy = traversal.asAdmin().getStrategies().getStrategy(OptionsStrategy.class).get();
-                return Arrays.asList(strategy.getOptions().get("a"), strategy.getOptions().get("b"));
-            }
-        });
-        assertThat((Collection<Object>) t.next(), contains("test", true));
+    companion object {
+        private fun assertOptions(optionedG: GraphTraversalSource) {
+            var t: GraphTraversal<*, *> = optionedG.inject(1)
+            t = t.asAdmin().addStep(object : ScalarMapStep<Any?, Any?>(t.asAdmin()) {
+                protected override fun map(traverser: Traverser.Admin<Any>): Any {
+                    val strategy = traversal.asAdmin().strategies.getStrategy(
+                        OptionsStrategy::class.java
+                    ).get()
+                    return Arrays.asList(strategy.options["a"], strategy.options["b"])
+                }
+            })
+            MatcherAssert.assertThat(t.next() as Collection<Any>, Matchers.contains("test", true))
+        }
     }
 }

@@ -16,57 +16,45 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.tinkerpop.gremlin.tinkercat;
+package org.apache.tinkerpop.gremlin.tinkercat
 
-import io.cucumber.java.Scenario;
-import org.apache.commons.configuration2.BaseConfiguration;
-import org.apache.commons.configuration2.Configuration;
-import org.apache.commons.configuration2.MapConfiguration;
-import org.apache.tinkerpop.gremlin.LoadGraphWith;
-import org.apache.tinkerpop.gremlin.TestHelper;
-import org.apache.tinkerpop.gremlin.features.World;
-import org.apache.tinkerpop.gremlin.process.computer.GraphComputer;
-import org.apache.tinkerpop.gremlin.process.computer.traversal.strategy.decoration.VertexProgramStrategy;
-import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
-import org.apache.tinkerpop.gremlin.tinkercat.process.computer.TinkerCatComputer;
-import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerFactory;
-import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat;
-import org.junit.AssumptionViolatedException;
-
-import java.io.File;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Random;
-import java.util.stream.Collectors;
+import io.cucumber.java.Scenario
+import org.apache.commons.configuration2.BaseConfiguration
+import org.apache.commons.configuration2.Configuration
+import org.apache.commons.configuration2.MapConfiguration
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerFactory.createModern
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerFactory.createClassic
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerFactory.createTheCrew
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerFactory.createKitchenSink
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerFactory.createGratefulDead
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat.Companion.open
+import org.apache.tinkerpop.gremlin.features.World
+import org.apache.tinkerpop.gremlin.LoadGraphWith.GraphData
+import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat
+import org.apache.tinkerpop.gremlin.tinkercat.TinkerCatWorld
+import org.apache.tinkerpop.gremlin.LoadGraphWith
+import java.lang.UnsupportedOperationException
+import org.apache.tinkerpop.gremlin.process.computer.traversal.strategy.decoration.VertexProgramStrategy
+import org.apache.tinkerpop.gremlin.process.computer.GraphComputer
+import org.apache.tinkerpop.gremlin.tinkercat.process.computer.TinkerCatComputer
+import org.apache.tinkerpop.gremlin.TestHelper
+import org.junit.AssumptionViolatedException
+import java.io.File
+import java.util.Arrays
+import java.util.HashMap
+import java.util.stream.Collectors
 
 /**
- * The {@link World} implementation for TinkerCat that provides the {@link GraphTraversalSource} instances required
+ * The [World] implementation for TinkerCat that provides the [GraphTraversalSource] instances required
  * by the Gherkin test suite.
  */
-public class TinkerCatWorld implements World {
-    private static final TinkerCat modern = TinkerFactory.createModern();
-    private static final TinkerCat classic = TinkerFactory.createClassic();
-    private static final TinkerCat crew = TinkerFactory.createTheCrew();
-    private static final TinkerCat sink = TinkerFactory.createKitchenSink();
-    private static final TinkerCat grateful = TinkerFactory.createGratefulDead();
-
-    @Override
-    public GraphTraversalSource getGraphTraversalSource(final LoadGraphWith.GraphData graphData) {
-        if (null == graphData)
-            return TinkerCat.open(getNumberIdManagerConfiguration()).traversal();
-        else if (graphData == LoadGraphWith.GraphData.CLASSIC)
-            return classic.traversal();
-        else if (graphData == LoadGraphWith.GraphData.CREW)
-            return crew.traversal();
-        else if (graphData == LoadGraphWith.GraphData.MODERN)
-            return modern.traversal();
-        else if (graphData == LoadGraphWith.GraphData.SINK)
-            return sink.traversal();
-        else if (graphData == LoadGraphWith.GraphData.GRATEFUL)
-            return grateful.traversal();
-        else
-            throw new UnsupportedOperationException("GraphData not supported: " + graphData.name());
+open class TinkerCatWorld : World {
+    override fun getGraphTraversalSource(graphData: GraphData): GraphTraversalSource {
+        return if (null == graphData) open(numberIdManagerConfiguration)
+            .traversal() else if (graphData == GraphData.CLASSIC) classic.traversal() else if (graphData == GraphData.CREW) crew.traversal() else if (graphData == GraphData.MODERN) modern.traversal() else if (graphData == GraphData.SINK) sink.traversal() else if (graphData == GraphData.GRATEFUL) grateful.traversal() else throw UnsupportedOperationException(
+            "GraphData not supported: " + graphData.name
+        )
     }
 
     /**
@@ -74,42 +62,59 @@ public class TinkerCatWorld implements World {
      * @param pathToFileFromGremlin the path to a data file as taken from the Gherkin tests
      * @return
      */
-    @Override
-    public String changePathToDataFile(final String pathToFileFromGremlin) {
-        return ".." + File.separator + pathToFileFromGremlin;
-    }
-
-    private static Configuration getNumberIdManagerConfiguration() {
-        final Configuration conf = new BaseConfiguration();
-        conf.setProperty(TinkerCat.GREMLIN_TINKERGRAPH_VERTEX_ID_MANAGER, TinkerCat.DefaultIdManager.INTEGER.name());
-        conf.setProperty(TinkerCat.GREMLIN_TINKERGRAPH_EDGE_ID_MANAGER, TinkerCat.DefaultIdManager.INTEGER.name());
-        conf.setProperty(TinkerCat.GREMLIN_TINKERGRAPH_VERTEX_PROPERTY_ID_MANAGER, TinkerCat.DefaultIdManager.LONG.name());
-        return conf;
+    override fun changePathToDataFile(pathToFileFromGremlin: String): String {
+        return ".." + File.separator + pathToFileFromGremlin
     }
 
     /**
-     * Enables the storing of {@code null} property values when testing.
+     * Enables the storing of `null` property values when testing.
      */
-    public static class NullWorld extends TinkerCatWorld {
-
-        @Override
-        public GraphTraversalSource getGraphTraversalSource(final LoadGraphWith.GraphData graphData) {
-            if (graphData != null)
-                throw new UnsupportedOperationException("GraphData not supported: " + graphData.name());
-
-            final Configuration conf = TinkerCatWorld.getNumberIdManagerConfiguration();
-            conf.setProperty(TinkerCat.GREMLIN_TINKERGRAPH_ALLOW_NULL_PROPERTY_VALUES, true);
-            return TinkerCat.open(conf).traversal();
+    class NullWorld : TinkerCatWorld() {
+        override fun getGraphTraversalSource(graphData: GraphData): GraphTraversalSource {
+            if (graphData != null) throw UnsupportedOperationException("GraphData not supported: " + graphData.name)
+            val conf = numberIdManagerConfiguration
+            conf.setProperty(TinkerCat.GREMLIN_TINKERGRAPH_ALLOW_NULL_PROPERTY_VALUES, true)
+            return open(conf).traversal()
         }
     }
 
     /**
-     * Turns on {@link GraphComputer} when testing.
+     * Turns on [GraphComputer] when testing.
      */
-    public static class ComputerWorld extends TinkerCatWorld {
-        private static final Random RANDOM = TestHelper.RANDOM;
+    class ComputerWorld : TinkerCatWorld() {
+        override fun beforeEachScenario(scenario: Scenario) {
+            val ignores = TAGS_TO_IGNORE.stream().filter { t: String? -> scenario.sourceTagNames.contains(t) }
+                .collect(Collectors.toList())
+            if (!ignores.isEmpty()) throw AssumptionViolatedException(
+                String.format(
+                    "This scenario is not supported with GraphComputer: %s",
+                    ignores
+                )
+            )
 
-        private static final List<String> TAGS_TO_IGNORE = Arrays.asList(
+            // the following needs some further investigation.........may need to improve the definition of result
+            // equality with map<list>
+            val scenarioName = scenario.name
+            if (SCENARIOS_TO_IGNORE.contains(scenarioName)) throw AssumptionViolatedException("There are some internal ordering issues with result where equality is not required but is being enforced")
+        }
+
+        override fun getGraphTraversalSource(graphData: GraphData): GraphTraversalSource {
+            if (null == graphData) throw AssumptionViolatedException("GraphComputer does not support mutation")
+            return super.getGraphTraversalSource(graphData)
+                .withStrategies(VertexProgramStrategy.create(MapConfiguration(object : HashMap<String?, Any?>() {
+                    init {
+                        put(VertexProgramStrategy.WORKERS, Runtime.getRuntime().availableProcessors())
+                        put(
+                            VertexProgramStrategy.GRAPH_COMPUTER,
+                            if (RANDOM.nextBoolean()) GraphComputer::class.java.canonicalName else TinkerCatComputer::class.java.canonicalName
+                        )
+                    }
+                })))
+        }
+
+        companion object {
+            private val RANDOM = TestHelper.RANDOM
+            private val TAGS_TO_IGNORE = Arrays.asList(
                 "@StepDrop",
                 "@StepV",
                 "@GraphComputerVerificationOneBulk",
@@ -117,9 +122,9 @@ public class TinkerCatWorld implements World {
                 "@GraphComputerVerificationMidVNotSupported",
                 "@GraphComputerVerificationInjectionNotSupported",
                 "@GraphComputerVerificationStarGraphExceeded",
-                "@GraphComputerVerificationReferenceOnly");
-
-        private static final List<String> SCENARIOS_TO_IGNORE = Arrays.asList(
+                "@GraphComputerVerificationReferenceOnly"
+            )
+            private val SCENARIOS_TO_IGNORE = Arrays.asList(
                 "g_V_group_byXoutE_countX_byXnameX",
                 "g_V_asXvX_mapXbothE_weight_foldX_sumXlocalX_asXsX_selectXv_sX_order_byXselectXsX_descX",
                 "g_V_hasXlangX_groupXaX_byXlangX_byXnameX_out_capXaX",
@@ -128,32 +133,30 @@ public class TinkerCatWorld implements World {
                 "g_V_both_both_dedup_byXoutE_countX_name",
                 "g_V_mapXbothE_weight_foldX_order_byXsumXlocalX_descX",
                 "g_V_hasLabelXsoftwareX_order_byXnameX_index_withXmapX",
-                "g_V_order_byXname_descX_barrier_dedup_age_name");
-
-        @Override
-        public void beforeEachScenario(final Scenario scenario) {
-            final List<String> ignores = TAGS_TO_IGNORE.stream().filter(t -> scenario.getSourceTagNames().contains(t)).collect(Collectors.toList());
-            if (!ignores.isEmpty())
-                throw new AssumptionViolatedException(String.format("This scenario is not supported with GraphComputer: %s", ignores));
-
-            // the following needs some further investigation.........may need to improve the definition of result
-            // equality with map<list>
-            final String scenarioName = scenario.getName();
-            if (SCENARIOS_TO_IGNORE.contains(scenarioName))
-                throw new AssumptionViolatedException("There are some internal ordering issues with result where equality is not required but is being enforced");
+                "g_V_order_byXname_descX_barrier_dedup_age_name"
+            )
         }
+    }
 
-        @Override
-        public GraphTraversalSource getGraphTraversalSource(final LoadGraphWith.GraphData graphData) {
-            if (null == graphData)
-                throw new AssumptionViolatedException("GraphComputer does not support mutation");
-
-            return super.getGraphTraversalSource(graphData).withStrategies(VertexProgramStrategy.create(new MapConfiguration(new HashMap<String, Object>() {{
-                put(VertexProgramStrategy.WORKERS, Runtime.getRuntime().availableProcessors());
-                put(VertexProgramStrategy.GRAPH_COMPUTER, RANDOM.nextBoolean() ?
-                        GraphComputer.class.getCanonicalName() :
-                        TinkerCatComputer.class.getCanonicalName());
-            }})));
-        }
+    companion object {
+        private val modern = createModern()
+        private val classic = createClassic()
+        private val crew = createTheCrew()
+        private val sink = createKitchenSink()
+        private val grateful = createGratefulDead()
+        private val numberIdManagerConfiguration: Configuration
+            private get() {
+                val conf: Configuration = BaseConfiguration()
+                conf.setProperty(
+                    TinkerCat.GREMLIN_TINKERGRAPH_VERTEX_ID_MANAGER,
+                    TinkerCat.DefaultIdManager.INTEGER.name
+                )
+                conf.setProperty(TinkerCat.GREMLIN_TINKERGRAPH_EDGE_ID_MANAGER, TinkerCat.DefaultIdManager.INTEGER.name)
+                conf.setProperty(
+                    TinkerCat.GREMLIN_TINKERGRAPH_VERTEX_PROPERTY_ID_MANAGER,
+                    TinkerCat.DefaultIdManager.LONG.name
+                )
+                return conf
+            }
     }
 }

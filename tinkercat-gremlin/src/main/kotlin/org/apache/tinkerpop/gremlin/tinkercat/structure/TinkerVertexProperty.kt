@@ -16,150 +16,150 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.tinkerpop.gremlin.tinkercat.structure;
+package org.apache.tinkerpop.gremlin.tinkercat.structure
 
-import org.apache.tinkerpop.gremlin.structure.Graph;
-import org.apache.tinkerpop.gremlin.structure.Property;
-import org.apache.tinkerpop.gremlin.structure.Vertex;
-import org.apache.tinkerpop.gremlin.structure.VertexProperty;
-import org.apache.tinkerpop.gremlin.structure.util.ElementHelper;
-import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
-import org.apache.tinkerpop.gremlin.tinkercat.process.computer.TinkerCatComputerView;
-import org.apache.tinkerpop.gremlin.util.iterator.IteratorUtils;
-
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
+import org.apache.tinkerpop.gremlin.structure.Property
+import org.apache.tinkerpop.gremlin.structure.Vertex
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerVertex.graph
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat.IdManager.getNextId
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerElement.Companion.elementAlreadyRemoved
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerHelper.removeIndex
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerVertex.properties
+import org.apache.tinkerpop.gremlin.structure.VertexProperty
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat
+import java.lang.IllegalArgumentException
+import org.apache.tinkerpop.gremlin.structure.util.ElementHelper
+import org.apache.tinkerpop.gremlin.structure.util.StringFactory
+import org.apache.tinkerpop.gremlin.util.iterator.IteratorUtils
+import java.util.*
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.stream.Collectors
 
 /**
  * @author Marko A. Rodriguez (http://markorodriguez.com)
  */
-public class TinkerVertexProperty<V> extends TinkerElement implements VertexProperty<V> {
-
-    protected Map<String, Property> properties;
-    private final TinkerVertex vertex;
-    private final String key;
-    private final V value;
-    private final boolean allowNullPropertyValues;
+open class TinkerVertexProperty<V>(
+    id: Any?,
+    vertex: TinkerVertex,
+    key: String,
+    value: V?,
+    vararg propertyKeyValues: Any?
+) : TinkerElement(
+    id!!, key
+), VertexProperty<V> {
+    protected var properties: MutableMap<String, Property<*>>? = null
+    private val vertex: TinkerVertex
+    private val key: String
+    private val value: V
+    private val allowNullPropertyValues: Boolean
 
     /**
-     * This constructor will not validate the ID type against the {@link Graph}.  It will always just use a
-     * {@code Long} for its identifier.  This is useful for constructing a {@link VertexProperty} for usage
-     * with {@link TinkerCatComputerView}.
+     * This constructor will not validate the ID type against the [Graph].  It will always just use a
+     * `Long` for its identifier.  This is useful for constructing a [VertexProperty] for usage
+     * with [TinkerCatComputerView].
      */
-    public TinkerVertexProperty(final TinkerVertex vertex, final String key, final V value, final Object... propertyKeyValues) {
-        this(((TinkerCat) vertex.graph()).vertexPropertyIdManager.getNextId((TinkerCat) vertex.graph()), vertex, key, value, propertyKeyValues);
+    constructor(vertex: TinkerVertex, key: String, value: V, vararg propertyKeyValues: Any?) : this(
+        (vertex.graph() as TinkerCat).vertexPropertyIdManager.getNextId(
+            (vertex.graph() as TinkerCat)
+        ), vertex, key, value, *propertyKeyValues
+    ) {
     }
 
     /**
-     * Use this constructor to construct {@link VertexProperty} instances for {@link TinkerCat} where the {@code id}
+     * Use this constructor to construct [VertexProperty] instances for [TinkerCat] where the `id`
      * can be explicitly set and validated against the expected data type.
      */
-    public TinkerVertexProperty(final Object id, final TinkerVertex vertex, final String key, final V value, final Object... propertyKeyValues) {
-        super(id, key);
-        this.allowNullPropertyValues = vertex.graph().features().vertex().properties().supportsNullPropertyValues();
-        if (!allowNullPropertyValues && null == value)
-            throw new IllegalArgumentException("value cannot be null as feature supportsNullPropertyValues is false");
-
-        this.vertex = vertex;
-        this.key = key;
-        this.value = value;
-        ElementHelper.legalPropertyKeyValueArray(propertyKeyValues);
-        ElementHelper.attachProperties(this, propertyKeyValues);
+    init {
+        allowNullPropertyValues = vertex.graph().features().vertex().properties().supportsNullPropertyValues()
+        require(!(!allowNullPropertyValues && null == value)) { "value cannot be null as feature supportsNullPropertyValues is false" }
+        this.vertex = vertex
+        this.key = key
+        this.value = value
+        ElementHelper.legalPropertyKeyValueArray(*propertyKeyValues)
+        ElementHelper.attachProperties(this, *propertyKeyValues)
     }
 
-    @Override
-    public String key() {
-        return this.key;
+    override fun key(): String {
+        return key
     }
 
-    @Override
-    public V value() {
-        return this.value;
+    override fun value(): V {
+        return value
     }
 
-    @Override
-    public boolean isPresent() {
-        return true;
+    override fun isPresent(): Boolean {
+        return true
     }
 
-    @Override
-    public String toString() {
-        return StringFactory.propertyString(this);
+    override fun toString(): String {
+        return StringFactory.propertyString(this)
     }
 
-    @Override
-    public Object id() {
-        return this.id;
+    override fun id(): Any {
+        return id
     }
 
-    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
-    @Override
-    public boolean equals(final Object object) {
-        return ElementHelper.areEqual(this, object);
+    override fun equals(`object`: Any?): Boolean {
+        return ElementHelper.areEqual(this, `object`)
     }
 
-    @Override
-    public Set<String> keys() {
-        return null == this.properties ? Collections.emptySet() : this.properties.keySet();
+    override fun keys(): Set<String> {
+        return if (null == properties) emptySet() else properties!!.keys
     }
 
-    @Override
-    public <U> Property<U> property(final String key) {
-        return null == this.properties ? Property.<U>empty() : this.properties.getOrDefault(key, Property.<U>empty());
+    override fun <U> property(key: String): Property<U> {
+        return if (null == properties) Property.empty() else properties!!.getOrDefault(key, Property.empty<U>())
     }
 
-    @Override
-    public <U> Property<U> property(final String key, final U value) {
-        if (this.removed) throw elementAlreadyRemoved(VertexProperty.class, id);
-
-        if ((!allowNullPropertyValues && null == value)) {
-            properties(key).forEachRemaining(Property::remove);
-            return Property.empty();
+    override fun <U> property(key: String, value: U): Property<U> {
+        if (removed) throw elementAlreadyRemoved(
+            VertexProperty::class.java, id
+        )
+        if (!allowNullPropertyValues && null == value) {
+            properties<Any?>(key).forEachRemaining { obj: Property<Any?> -> obj.remove() }
+            return Property.empty()
         }
-
-        final Property<U> property = new TinkerProperty<>(this, key, value);
-        if (this.properties == null) this.properties = new HashMap<>();
-        this.properties.put(key, property);
-        return property;
+        val property: Property<U> = TinkerProperty(this, key, value)
+        if (properties == null) properties = HashMap()
+        properties!![key] = property
+        return property
     }
 
-    @Override
-    public Vertex element() {
-        return this.vertex;
+    override fun element(): Vertex {
+        return vertex
     }
 
-    @Override
-    public void remove() {
-        if (null != this.vertex.properties && this.vertex.properties.containsKey(this.key)) {
-            this.vertex.properties.get(this.key).remove(this);
-            if (this.vertex.properties.get(this.key).size() == 0) {
-                this.vertex.properties.remove(this.key);
-                TinkerHelper.removeIndex(this.vertex, this.key, this.value);
+    override fun remove() {
+        if (null != vertex.properties && vertex.properties!!.containsKey(key)) {
+            vertex.properties!![key]!!.remove(this)
+            if (vertex.properties!![key]!!.size == 0) {
+                vertex.properties!!.remove(key)
+                removeIndex(vertex, key, value)
             }
-            final AtomicBoolean delete = new AtomicBoolean(true);
-            this.vertex.properties(this.key).forEachRemaining(property -> {
-                final Object currentPropertyValue = property.value();
-                if ((currentPropertyValue != null && currentPropertyValue.equals(this.value) || null == currentPropertyValue && null == this.value))
-                    delete.set(false);
-            });
-            if (delete.get()) TinkerHelper.removeIndex(this.vertex, this.key, this.value);
-            this.properties = null;
-            this.removed = true;
+            val delete = AtomicBoolean(true)
+            vertex.properties<Any?>(key).forEachRemaining { property: VertexProperty<Any?> ->
+                val currentPropertyValue = property.value()
+                if (currentPropertyValue != null && currentPropertyValue == value || null == currentPropertyValue && null == value) delete.set(
+                    false
+                )
+            }
+            if (delete.get()) removeIndex(vertex, key, value)
+            properties = null
+            removed = true
         }
     }
 
-    @Override
-    public <U> Iterator<Property<U>> properties(final String... propertyKeys) {
-        if (null == this.properties) return Collections.emptyIterator();
-        if (propertyKeys.length == 1) {
-            final Property<U> property = this.properties.get(propertyKeys[0]);
-            return null == property ? Collections.emptyIterator() : IteratorUtils.of(property);
-        } else
-            return (Iterator) this.properties.entrySet().stream().filter(entry -> ElementHelper.keyExists(entry.getKey(), propertyKeys)).map(entry -> entry.getValue()).collect(Collectors.toList()).iterator();
+    override fun <U> properties(vararg propertyKeys: String): Iterator<Property<U>> {
+        if (null == properties) return Collections.emptyIterator()
+        return if (propertyKeys.size == 1) {
+            val property: Property<U>? = properties!![propertyKeys[0]]
+            if (null == property) Collections.emptyIterator() else IteratorUtils.of(property)
+        } else properties!!.entries.stream().filter { (key1): Map.Entry<String, Property<*>> ->
+            ElementHelper.keyExists(
+                key1, *propertyKeys
+            )
+        }
+            .map { (_, value1): Map.Entry<String, Property<*>> -> value1 }
+            .collect(Collectors.toList()).iterator()
     }
 }

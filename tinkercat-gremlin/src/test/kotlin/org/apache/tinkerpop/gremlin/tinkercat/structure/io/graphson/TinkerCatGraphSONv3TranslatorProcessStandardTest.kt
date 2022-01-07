@@ -16,19 +16,18 @@
  *  specific language governing permissions and limitations
  *  under the License.
  */
+package org.apache.tinkerpop.gremlin.tinkercat.structure.io.graphson
 
-package org.apache.tinkerpop.gremlin.tinkercat.structure.io.graphson;
-
-import org.apache.tinkerpop.gremlin.GraphProviderClass;
-import org.apache.tinkerpop.gremlin.process.ProcessStandardSuite;
-import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat;
-import org.junit.runner.RunWith;
+import org.junit.runner.RunWith
+import org.apache.tinkerpop.gremlin.process.ProcessStandardSuite
+import org.apache.tinkerpop.gremlin.GraphProviderClass
+import org.apache.tinkerpop.gremlin.tinkercat.structure.io.graphson.AbstractTinkerCatGraphSONTranslatorProvider.TinkerCatGraphSONv3TranslatorProvider
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat
 
 /**
  * @author Marko A. Rodriguez (http://markorodriguez.com)
  * @author Stephen Mallette (http://stephen.genoprime.com)
  */
-@RunWith(ProcessStandardSuite.class)
-@GraphProviderClass(provider = AbstractTinkerCatGraphSONTranslatorProvider.TinkerCatGraphSONv3TranslatorProvider.class, graph = TinkerCat.class)
-public class TinkerCatGraphSONv3TranslatorProcessStandardTest {
-}
+@RunWith(ProcessStandardSuite::class)
+@GraphProviderClass(provider = TinkerCatGraphSONv3TranslatorProvider::class, graph = TinkerCat::class)
+class TinkerCatGraphSONv3TranslatorProcessStandardTest 

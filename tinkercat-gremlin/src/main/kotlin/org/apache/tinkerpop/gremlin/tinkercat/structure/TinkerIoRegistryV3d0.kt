@@ -16,50 +16,25 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.tinkerpop.gremlin.tinkercat.structure;
+package org.apache.tinkerpop.gremlin.tinkercat.structure
 
-import org.apache.commons.configuration2.BaseConfiguration;
-import org.apache.commons.configuration2.Configuration;
-import org.apache.tinkerpop.gremlin.structure.Edge;
-import org.apache.tinkerpop.gremlin.structure.Vertex;
-import org.apache.tinkerpop.gremlin.structure.io.AbstractIoRegistry;
-import org.apache.tinkerpop.gremlin.structure.io.GraphReader;
-import org.apache.tinkerpop.gremlin.structure.io.GraphWriter;
-import org.apache.tinkerpop.gremlin.structure.io.IoRegistry;
-import org.apache.tinkerpop.gremlin.structure.io.graphson.GraphSONIo;
-import org.apache.tinkerpop.gremlin.structure.io.graphson.GraphSONTokens;
-import org.apache.tinkerpop.gremlin.structure.io.graphson.TinkerPopJacksonModule;
-import org.apache.tinkerpop.gremlin.structure.io.gryo.GryoIo;
-import org.apache.tinkerpop.gremlin.structure.io.gryo.GryoReader;
-import org.apache.tinkerpop.gremlin.structure.io.gryo.GryoWriter;
-import org.apache.tinkerpop.gremlin.structure.util.Attachable;
-import org.apache.tinkerpop.gremlin.structure.util.detached.DetachedEdge;
-import org.apache.tinkerpop.gremlin.structure.util.detached.DetachedVertex;
-import org.apache.tinkerpop.shaded.jackson.core.JsonGenerator;
-import org.apache.tinkerpop.shaded.jackson.core.JsonParser;
-import org.apache.tinkerpop.shaded.jackson.core.JsonProcessingException;
-import org.apache.tinkerpop.shaded.jackson.core.JsonToken;
-import org.apache.tinkerpop.shaded.jackson.databind.DeserializationContext;
-import org.apache.tinkerpop.shaded.jackson.databind.SerializerProvider;
-import org.apache.tinkerpop.shaded.jackson.databind.deser.std.StdDeserializer;
-import org.apache.tinkerpop.shaded.jackson.databind.ser.std.StdScalarSerializer;
-import org.apache.tinkerpop.shaded.kryo.Kryo;
-import org.apache.tinkerpop.shaded.kryo.Serializer;
-import org.apache.tinkerpop.shaded.kryo.io.Input;
-import org.apache.tinkerpop.shaded.kryo.io.Output;
-
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
+import org.apache.commons.configuration2.BaseConfiguration
+import org.apache.commons.configuration2.Configuration
+import org.apache.tinkerpop.gremlin.structure.Edge
+import org.apache.tinkerpop.gremlin.structure.Vertex
+import org.apache.tinkerpop.gremlin.structure.io.Mapper
+import org.apache.tinkerpop.gremlin.structure.util.Attachable
+import org.apache.tinkerpop.shaded.jackson.core.JsonGenerator
+import java.io.ByteArrayOutputStream
+import java.lang.Exception
+import java.util.HashMap
 
 /**
- * An implementation of the {@link IoRegistry} interface that provides serializers with custom configurations for
- * implementation specific classes that might need to be serialized.  This registry allows a {@link TinkerCat} to
+ * An implementation of the [IoRegistry] interface that provides serializers with custom configurations for
+ * implementation specific classes that might need to be serialized.  This registry allows a [TinkerCat] to
  * be serialized directly which is useful for moving small graphs around on the network.
- * <p/>
+ *
+ *
  * Most providers need not implement this kind of custom serializer as they will deal with much larger graphs that
  * wouldn't be practical to serialize in this fashion.  This is a bit of a special case for TinkerCat given its
  * in-memory status.  Typical implementations would create serializers for a complex vertex identifier or a
@@ -67,150 +42,134 @@ import java.util.Map;
  *
  * @author Stephen Mallette (http://stephen.genoprime.com)
  */
-public final class TinkerIoRegistryV3d0 extends AbstractIoRegistry {
-
-    private static final TinkerIoRegistryV3d0 INSTANCE = new TinkerIoRegistryV3d0();
-
-    private TinkerIoRegistryV3d0() {
-        register(GryoIo.class, TinkerCat.class, new TinkerCatGryoSerializer());
-        register(GraphSONIo.class, null, new TinkerModuleV2d0());
-    }
-
-    public static TinkerIoRegistryV3d0 instance() {
-        return INSTANCE;
+class TinkerIoRegistryV3d0 private constructor() : AbstractIoRegistry() {
+    init {
+        register(GryoIo::class.java, TinkerCat::class.java, TinkerCatGryoSerializer())
+        register(GraphSONIo::class.java, null, TinkerModuleV2d0())
     }
 
     /**
-     * Provides a method to serialize an entire {@link TinkerCat} into itself for Gryo.  This is useful when
+     * Provides a method to serialize an entire [TinkerCat] into itself for Gryo.  This is useful when
      * shipping small graphs around through Gremlin Server. Reuses the existing Kryo instance for serialization.
      */
-    final static class TinkerCatGryoSerializer extends Serializer<TinkerCat> {
-        @Override
-        public void write(final Kryo kryo, final Output output, final TinkerCat graph) {
-            try (final ByteArrayOutputStream stream = new ByteArrayOutputStream()) {
-                GryoWriter.build().mapper(() -> kryo).create().writeGraph(stream, graph);
-                final byte[] bytes = stream.toByteArray();
-                output.writeInt(bytes.length);
-                output.write(bytes);
-            } catch (Exception io) {
-                throw new RuntimeException(io);
+    internal class TinkerCatGryoSerializer : Serializer<TinkerCat?>() {
+        fun write(kryo: Kryo?, output: Output, graph: TinkerCat?) {
+            try {
+                ByteArrayOutputStream().use { stream ->
+                    GryoWriter.build().mapper(Mapper<Kryo?> { kryo }).create().writeGraph(stream, graph)
+                    val bytes = stream.toByteArray()
+                    output.writeInt(bytes.size)
+                    output.write(bytes)
+                }
+            } catch (io: Exception) {
+                throw RuntimeException(io)
             }
         }
 
-        @Override
-        public TinkerCat read(final Kryo kryo, final Input input, final Class<TinkerCat> tinkerGraphClass) {
-            final Configuration conf = new BaseConfiguration();
-            conf.setProperty("gremlin.tinkercat.defaultVertexPropertyCardinality", "list");
-            final TinkerCat graph = TinkerCat.open(conf);
-            final int len = input.readInt();
-            final byte[] bytes = input.readBytes(len);
-            try (final ByteArrayInputStream stream = new ByteArrayInputStream(bytes)) {
-                GryoReader.build().mapper(() -> kryo).create().readGraph(stream, graph);
-            } catch (Exception io) {
-                throw new RuntimeException(io);
+        fun read(kryo: Kryo?, input: Input, tinkerGraphClass: Class<TinkerCat?>?): TinkerCat {
+            val conf: Configuration = BaseConfiguration()
+            conf.setProperty("gremlin.tinkercat.defaultVertexPropertyCardinality", "list")
+            val graph = TinkerCat.open(conf)
+            val len: Int = input.readInt()
+            val bytes: ByteArray = input.readBytes(len)
+            try {
+                ByteArrayInputStream(bytes).use { stream ->
+                    GryoReader.build().mapper(Mapper<Kryo?> { kryo }).create().readGraph(stream, graph)
+                }
+            } catch (io: Exception) {
+                throw RuntimeException(io)
             }
-
-            return graph;
+            return graph
         }
     }
 
     /**
-     * Provides a method to serialize an entire {@link TinkerCat} into itself for GraphSON. This is useful when
+     * Provides a method to serialize an entire [TinkerCat] into itself for GraphSON. This is useful when
      * shipping small graphs around through Gremlin Server.
      */
-    final static class TinkerModuleV2d0 extends TinkerPopJacksonModule {
-        public TinkerModuleV2d0() {
-            super("tinkercat-2.0");
-            addSerializer(TinkerCat.class, new TinkerCatJacksonSerializer());
-            addDeserializer(TinkerCat.class, new TinkerCatJacksonDeserializer());
+    internal class TinkerModuleV2d0 : TinkerPopJacksonModule("tinkercat-2.0") {
+        init {
+            addSerializer(TinkerCat::class.java, TinkerCatJacksonSerializer())
+            addDeserializer(TinkerCat::class.java, TinkerCatJacksonDeserializer())
         }
 
-        @Override
-        public Map<Class, String> getTypeDefinitions() {
-            return new HashMap<Class, String>(){{
-                put(TinkerCat.class, "graph");
-            }};
-        }
-
-        @Override
-        public String getTypeNamespace() {
-            return "tinker";
-        }
+        val typeDefinitions: Map<Class<*>, String>
+            get() = object : HashMap<Class<*>?, String?>() {
+                init {
+                    put(TinkerCat::class.java, "graph")
+                }
+            }
+        val typeNamespace: String
+            get() = "tinker"
     }
 
     /**
      * Serializes the graph into an edge list format.  Edge list is a better choices than adjacency list (which is
-     * typically standard from the {@link GraphReader} and {@link GraphWriter} perspective) in this case because
+     * typically standard from the [GraphReader] and [GraphWriter] perspective) in this case because
      * the use case for this isn't around massive graphs.  The use case is for "small" subgraphs that are being
      * shipped over the wire from Gremlin Server. Edge list format is a bit easier for non-JVM languages to work
      * with as a format and doesn't require a cache for loading (as vertex labels are not serialized in adjacency
      * list).
      */
-    final static class TinkerCatJacksonSerializer extends StdScalarSerializer<TinkerCat> {
-
-        public TinkerCatJacksonSerializer() {
-            super(TinkerCat.class);
-        }
-
-        @Override
-        public void serialize(final TinkerCat graph, final JsonGenerator jsonGenerator, final SerializerProvider serializerProvider)
-                throws IOException {
-            jsonGenerator.writeStartObject();
-            jsonGenerator.writeFieldName(GraphSONTokens.VERTICES);
-            jsonGenerator.writeStartArray();
-
-            final Iterator<Vertex> vertices = graph.vertices();
+    internal class TinkerCatJacksonSerializer : StdScalarSerializer<TinkerCat?>(TinkerCat::class.java) {
+        @Throws(IOException::class)
+        fun serialize(graph: TinkerCat, jsonGenerator: JsonGenerator, serializerProvider: SerializerProvider) {
+            jsonGenerator.writeStartObject()
+            jsonGenerator.writeFieldName(GraphSONTokens.VERTICES)
+            jsonGenerator.writeStartArray()
+            val vertices = graph.vertices()
             while (vertices.hasNext()) {
-                serializerProvider.defaultSerializeValue(vertices.next(), jsonGenerator);
+                serializerProvider.defaultSerializeValue(vertices.next(), jsonGenerator)
             }
-
-            jsonGenerator.writeEndArray();
-            jsonGenerator.writeFieldName(GraphSONTokens.EDGES);
-            jsonGenerator.writeStartArray();
-
-            final Iterator<Edge> edges = graph.edges();
+            jsonGenerator.writeEndArray()
+            jsonGenerator.writeFieldName(GraphSONTokens.EDGES)
+            jsonGenerator.writeStartArray()
+            val edges = graph.edges()
             while (edges.hasNext()) {
-                serializerProvider.defaultSerializeValue(edges.next(), jsonGenerator);
+                serializerProvider.defaultSerializeValue(edges.next(), jsonGenerator)
             }
-
-            jsonGenerator.writeEndArray();
-            jsonGenerator.writeEndObject();
+            jsonGenerator.writeEndArray()
+            jsonGenerator.writeEndObject()
         }
     }
 
     /**
      * Deserializes the edge list format.
      */
-    static class TinkerCatJacksonDeserializer extends StdDeserializer<TinkerCat> {
-        public TinkerCatJacksonDeserializer() {
-            super(TinkerCat.class);
-        }
-
-        @Override
-        public TinkerCat deserialize(final JsonParser jsonParser, final DeserializationContext deserializationContext) throws IOException, JsonProcessingException {
-            final Configuration conf = new BaseConfiguration();
-            conf.setProperty("gremlin.tinkercat.defaultVertexPropertyCardinality", "list");
-            final TinkerCat graph = TinkerCat.open(conf);
-
-            while (jsonParser.nextToken() != JsonToken.END_OBJECT) {
+    internal class TinkerCatJacksonDeserializer : StdDeserializer<TinkerCat?>(TinkerCat::class.java) {
+        @Throws(IOException::class, JsonProcessingException::class)
+        fun deserialize(jsonParser: JsonParser, deserializationContext: DeserializationContext): TinkerCat {
+            val conf: Configuration = BaseConfiguration()
+            conf.setProperty("gremlin.tinkercat.defaultVertexPropertyCardinality", "list")
+            val graph = TinkerCat.open(conf)
+            while (jsonParser.nextToken() !== JsonToken.END_OBJECT) {
                 if (jsonParser.getCurrentName().equals("vertices")) {
-                    while (jsonParser.nextToken() != JsonToken.END_ARRAY) {
-                        if (jsonParser.currentToken() == JsonToken.START_OBJECT) {
-                            final DetachedVertex v = (DetachedVertex) deserializationContext.readValue(jsonParser, Vertex.class);
-                            v.attach(Attachable.Method.getOrCreate(graph));
+                    while (jsonParser.nextToken() !== JsonToken.END_ARRAY) {
+                        if (jsonParser.currentToken() === JsonToken.START_OBJECT) {
+                            val v: DetachedVertex =
+                                deserializationContext.readValue(jsonParser, Vertex::class.java) as DetachedVertex
+                            v.attach(Attachable.Method.getOrCreate<Vertex>(graph))
                         }
                     }
                 } else if (jsonParser.getCurrentName().equals("edges")) {
-                    while (jsonParser.nextToken() != JsonToken.END_ARRAY) {
-                        if (jsonParser.currentToken() == JsonToken.START_OBJECT) {
-                            final DetachedEdge e = (DetachedEdge) deserializationContext.readValue(jsonParser, Edge.class);
-                            e.attach(Attachable.Method.getOrCreate(graph));
+                    while (jsonParser.nextToken() !== JsonToken.END_ARRAY) {
+                        if (jsonParser.currentToken() === JsonToken.START_OBJECT) {
+                            val e: DetachedEdge =
+                                deserializationContext.readValue(jsonParser, Edge::class.java) as DetachedEdge
+                            e.attach(Attachable.Method.getOrCreate<Edge>(graph))
                         }
                     }
                 }
             }
+            return graph
+        }
+    }
 
-            return graph;
+    companion object {
+        private val INSTANCE = TinkerIoRegistryV3d0()
+        @JvmStatic
+        fun instance(): TinkerIoRegistryV3d0 {
+            return INSTANCE
         }
     }
 }

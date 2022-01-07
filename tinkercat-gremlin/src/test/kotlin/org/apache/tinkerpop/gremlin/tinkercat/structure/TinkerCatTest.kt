@@ -16,632 +16,629 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.tinkerpop.gremlin.tinkercat.structure;
+package org.apache.tinkerpop.gremlin.tinkercat.structure
 
-import org.apache.commons.configuration2.BaseConfiguration;
-import org.apache.commons.configuration2.Configuration;
-import org.apache.tinkerpop.gremlin.GraphHelper;
-import org.apache.tinkerpop.gremlin.TestHelper;
-import org.apache.tinkerpop.gremlin.process.computer.Computer;
-import org.apache.tinkerpop.gremlin.process.traversal.P;
-import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
-import org.apache.tinkerpop.gremlin.process.traversal.TraversalStrategy;
-import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
-import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__;
-import org.apache.tinkerpop.gremlin.process.traversal.strategy.optimization.IdentityRemovalStrategy;
-import org.apache.tinkerpop.gremlin.process.traversal.strategy.verification.ReservedKeysVerificationStrategy;
-import org.apache.tinkerpop.gremlin.process.traversal.util.Metrics;
-import org.apache.tinkerpop.gremlin.process.traversal.util.TraversalHelper;
-import org.apache.tinkerpop.gremlin.process.traversal.util.TraversalMetrics;
-import org.apache.tinkerpop.gremlin.structure.Edge;
-import org.apache.tinkerpop.gremlin.structure.Graph;
-import org.apache.tinkerpop.gremlin.structure.T;
-import org.apache.tinkerpop.gremlin.structure.Vertex;
-import org.apache.tinkerpop.gremlin.structure.VertexProperty;
-import org.apache.tinkerpop.gremlin.structure.io.Io;
-import org.apache.tinkerpop.gremlin.structure.io.GraphReader;
-import org.apache.tinkerpop.gremlin.structure.io.GraphWriter;
-import org.apache.tinkerpop.gremlin.structure.io.IoCore;
-import org.apache.tinkerpop.gremlin.structure.io.IoTest;
-import org.apache.tinkerpop.gremlin.structure.io.Mapper;
-import org.apache.tinkerpop.gremlin.structure.io.graphson.GraphSONReader;
-import org.apache.tinkerpop.gremlin.structure.io.graphson.GraphSONWriter;
-import org.apache.tinkerpop.gremlin.structure.io.graphson.TypeInfo;
-import org.apache.tinkerpop.gremlin.structure.io.gryo.GryoClassResolverV1d0;
-import org.apache.tinkerpop.gremlin.structure.io.gryo.GryoMapper;
-import org.apache.tinkerpop.gremlin.structure.io.gryo.GryoVersion;
-import org.apache.tinkerpop.gremlin.structure.io.gryo.GryoWriter;
-import org.apache.tinkerpop.gremlin.util.iterator.IteratorUtils;
-import org.apache.tinkerpop.shaded.jackson.databind.ObjectMapper;
-import org.apache.tinkerpop.shaded.kryo.ClassResolver;
-import org.apache.tinkerpop.shaded.kryo.Kryo;
-import org.apache.tinkerpop.shaded.kryo.Registration;
-import org.apache.tinkerpop.shaded.kryo.Serializer;
-import org.apache.tinkerpop.shaded.kryo.io.Input;
-import org.apache.tinkerpop.shaded.kryo.io.Output;
-import org.junit.Test;
-
-import java.awt.Color;
-import java.io.BufferedOutputStream;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
-import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
-import java.util.function.Supplier;
-
-import static org.apache.tinkerpop.gremlin.process.traversal.AnonymousTraversalSource.traversal;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.greaterThan;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.core.StringContains.containsString;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotSame;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-import static org.junit.Assume.assumeThat;
-import static org.mockito.Mockito.mock;
+import org.apache.commons.configuration2.BaseConfiguration
+import org.apache.commons.configuration2.Configuration
+import org.apache.tinkerpop.gremlin.process.computer.Computer
+import org.apache.tinkerpop.gremlin.process.traversal.P
+import org.apache.tinkerpop.gremlin.process.traversal.Traversal
+import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__
+import org.apache.tinkerpop.gremlin.structure.Edge
+import org.apache.tinkerpop.gremlin.structure.Graph
+import org.apache.tinkerpop.gremlin.structure.Vertex
+import org.apache.tinkerpop.gremlin.structure.io.GraphReader
+import org.apache.tinkerpop.gremlin.structure.io.Mapper
+import org.apache.tinkerpop.gremlin.structure.io.graphson.TypeInfo
+import org.apache.tinkerpop.gremlin.util.iterator.IteratorUtils
+import org.apache.tinkerpop.shaded.jackson.databind.ObjectMapper
+import org.hamcrest.MatcherAssert
+import org.hamcrest.Matchers
+import org.hamcrest.core.StringContains
+import org.junit.Assert
+import org.junit.Test
+import java.awt.Color
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.lang.Exception
+import java.util.*
+import java.util.concurrent.TimeUnit
+import java.util.function.Consumer
+import java.util.function.Supplier
 
 /**
  * @author Marko A. Rodriguez (http://markorodriguez.com)
  * @author Stephen Mallette (http://stephen.genoprime.com)
  */
-public class TinkerCatTest {
-
+class TinkerCatTest {
     @Test
-    public void shouldManageIndices() {
-        final TinkerCat g = TinkerCat.open();
-
-        Set<String> keys = g.getIndexedKeys(Vertex.class);
-        assertEquals(0, keys.size());
-        keys = g.getIndexedKeys(Edge.class);
-        assertEquals(0, keys.size());
-
-        g.createIndex("name1", Vertex.class);
-        g.createIndex("name2", Vertex.class);
-        g.createIndex("oid1", Edge.class);
-        g.createIndex("oid2", Edge.class);
+    fun shouldManageIndices() {
+        val g = TinkerCat.open()
+        var keys = g.getIndexedKeys(
+            Vertex::class.java
+        )
+        Assert.assertEquals(0, keys.size.toLong())
+        keys = g.getIndexedKeys(Edge::class.java)
+        Assert.assertEquals(0, keys.size.toLong())
+        g.createIndex("name1", Vertex::class.java)
+        g.createIndex("name2", Vertex::class.java)
+        g.createIndex("oid1", Edge::class.java)
+        g.createIndex("oid2", Edge::class.java)
 
         // add the same one twice to check idempotency
-        g.createIndex("name1", Vertex.class);
-
-        keys = g.getIndexedKeys(Vertex.class);
-        assertEquals(2, keys.size());
-        for (String k : keys) {
-            assertTrue(k.equals("name1") || k.equals("name2"));
+        g.createIndex("name1", Vertex::class.java)
+        keys = g.getIndexedKeys(Vertex::class.java)
+        Assert.assertEquals(2, keys.size.toLong())
+        for (k in keys) {
+            Assert.assertTrue(k == "name1" || k == "name2")
         }
-
-        keys = g.getIndexedKeys(Edge.class);
-        assertEquals(2, keys.size());
-        for (String k : keys) {
-            assertTrue(k.equals("oid1") || k.equals("oid2"));
+        keys = g.getIndexedKeys(Edge::class.java)
+        Assert.assertEquals(2, keys.size.toLong())
+        for (k in keys) {
+            Assert.assertTrue(k == "oid1" || k == "oid2")
         }
-
-        g.dropIndex("name2", Vertex.class);
-        keys = g.getIndexedKeys(Vertex.class);
-        assertEquals(1, keys.size());
-        assertEquals("name1", keys.iterator().next());
-
-        g.dropIndex("name1", Vertex.class);
-        keys = g.getIndexedKeys(Vertex.class);
-        assertEquals(0, keys.size());
-
-        g.dropIndex("oid1", Edge.class);
-        keys = g.getIndexedKeys(Edge.class);
-        assertEquals(1, keys.size());
-        assertEquals("oid2", keys.iterator().next());
-
-        g.dropIndex("oid2", Edge.class);
-        keys = g.getIndexedKeys(Edge.class);
-        assertEquals(0, keys.size());
-
-        g.dropIndex("better-not-error-index-key-does-not-exist", Vertex.class);
-        g.dropIndex("better-not-error-index-key-does-not-exist", Edge.class);
+        g.dropIndex("name2", Vertex::class.java)
+        keys = g.getIndexedKeys(Vertex::class.java)
+        Assert.assertEquals(1, keys.size.toLong())
+        Assert.assertEquals("name1", keys.iterator().next())
+        g.dropIndex("name1", Vertex::class.java)
+        keys = g.getIndexedKeys(Vertex::class.java)
+        Assert.assertEquals(0, keys.size.toLong())
+        g.dropIndex("oid1", Edge::class.java)
+        keys = g.getIndexedKeys(Edge::class.java)
+        Assert.assertEquals(1, keys.size.toLong())
+        Assert.assertEquals("oid2", keys.iterator().next())
+        g.dropIndex("oid2", Edge::class.java)
+        keys = g.getIndexedKeys(Edge::class.java)
+        Assert.assertEquals(0, keys.size.toLong())
+        g.dropIndex("better-not-error-index-key-does-not-exist", Vertex::class.java)
+        g.dropIndex("better-not-error-index-key-does-not-exist", Edge::class.java)
     }
 
-    @Test(expected = IllegalArgumentException.class)
-    public void shouldNotCreateVertexIndexWithNullKey() {
-        final TinkerCat g = TinkerCat.open();
-        g.createIndex(null, Vertex.class);
+    @Test(expected = IllegalArgumentException::class)
+    fun shouldNotCreateVertexIndexWithNullKey() {
+        val g = TinkerCat.open()
+        g.createIndex(null, Vertex::class.java)
     }
 
-    @Test(expected = IllegalArgumentException.class)
-    public void shouldNotCreateEdgeIndexWithNullKey() {
-        final TinkerCat g = TinkerCat.open();
-        g.createIndex(null, Edge.class);
+    @Test(expected = IllegalArgumentException::class)
+    fun shouldNotCreateEdgeIndexWithNullKey() {
+        val g = TinkerCat.open()
+        g.createIndex(null, Edge::class.java)
     }
 
-    @Test(expected = IllegalArgumentException.class)
-    public void shouldNotCreateVertexIndexWithEmptyKey() {
-        final TinkerCat g = TinkerCat.open();
-        g.createIndex("", Vertex.class);
+    @Test(expected = IllegalArgumentException::class)
+    fun shouldNotCreateVertexIndexWithEmptyKey() {
+        val g = TinkerCat.open()
+        g.createIndex("", Vertex::class.java)
     }
 
-    @Test(expected = IllegalArgumentException.class)
-    public void shouldNotCreateEdgeIndexWithEmptyKey() {
-        final TinkerCat g = TinkerCat.open();
-        g.createIndex("", Edge.class);
+    @Test(expected = IllegalArgumentException::class)
+    fun shouldNotCreateEdgeIndexWithEmptyKey() {
+        val g = TinkerCat.open()
+        g.createIndex("", Edge::class.java)
     }
 
     @Test
-    public void shouldUpdateVertexIndicesInNewGraph() {
-        final TinkerCat g = TinkerCat.open();
-        g.createIndex("name", Vertex.class);
-
-        g.addVertex("name", "marko", "age", 29);
-        g.addVertex("name", "stephen", "age", 35);
+    fun shouldUpdateVertexIndicesInNewGraph() {
+        val g = TinkerCat.open()
+        g.createIndex("name", Vertex::class.java)
+        g.addVertex("name", "marko", "age", 29)
+        g.addVertex("name", "stephen", "age", 35)
 
         // a tricky way to evaluate if indices are actually being used is to pass a fake BiPredicate to has()
         // to get into the Pipeline and evaluate what's going through it.  in this case, we know that at index
         // is used because only "stephen" ages should pass through the pipeline due to the inclusion of the
         // key index lookup on "name".  If there's an age of something other than 35 in the pipeline being evaluated
         // then something is wrong.
-        assertEquals(new Long(1), g.traversal().V().has("age", P.test((t, u) -> {
-            assertEquals(35, t);
-            return true;
-        }, 35)).has("name", "stephen").count().next());
+        Assert.assertEquals(
+            1, g.traversal().V().has("age", P.test(
+                BiPredicate<*, *> { t: Any?, u: Any? ->
+                    Assert.assertEquals(35, t)
+                    true
+                }, 35
+            )
+            ).has("name", "stephen").count().next()
+        )
     }
 
     @Test
-    public void shouldRemoveAVertexFromAnIndex() {
-        final TinkerCat g = TinkerCat.open();
-        g.createIndex("name", Vertex.class);
-
-        g.addVertex("name", "marko", "age", 29);
-        g.addVertex("name", "stephen", "age", 35);
-        final Vertex v = g.addVertex("name", "stephen", "age", 35);
+    fun shouldRemoveAVertexFromAnIndex() {
+        val g = TinkerCat.open()
+        g.createIndex("name", Vertex::class.java)
+        g.addVertex("name", "marko", "age", 29)
+        g.addVertex("name", "stephen", "age", 35)
+        val v = g.addVertex("name", "stephen", "age", 35)
 
         // a tricky way to evaluate if indices are actually being used is to pass a fake BiPredicate to has()
         // to get into the Pipeline and evaluate what's going through it.  in this case, we know that at index
         // is used because only "stephen" ages should pass through the pipeline due to the inclusion of the
         // key index lookup on "name".  If there's an age of something other than 35 in the pipeline being evaluated
         // then something is wrong.
-        assertEquals(new Long(2), g.traversal().V().has("age", P.test((t, u) -> {
-            assertEquals(35, t);
-            return true;
-        }, 35)).has("name", "stephen").count().next());
-
-        v.remove();
-        assertEquals(new Long(1), g.traversal().V().has("age", P.test((t, u) -> {
-            assertEquals(35, t);
-            return true;
-        }, 35)).has("name", "stephen").count().next());
+        Assert.assertEquals(
+            2, g.traversal().V().has("age", P.test(
+                BiPredicate<*, *> { t: Any?, u: Any? ->
+                    Assert.assertEquals(35, t)
+                    true
+                }, 35
+            )
+            ).has("name", "stephen").count().next()
+        )
+        v.remove()
+        Assert.assertEquals(
+            1, g.traversal().V().has("age", P.test(
+                BiPredicate<*, *> { t: Any?, u: Any? ->
+                    Assert.assertEquals(35, t)
+                    true
+                }, 35
+            )
+            ).has("name", "stephen").count().next()
+        )
     }
 
     @Test
-    public void shouldUpdateVertexIndicesInExistingGraph() {
-        final TinkerCat g = TinkerCat.open();
-
-        g.addVertex("name", "marko", "age", 29);
-        g.addVertex("name", "stephen", "age", 35);
+    fun shouldUpdateVertexIndicesInExistingGraph() {
+        val g = TinkerCat.open()
+        g.addVertex("name", "marko", "age", 29)
+        g.addVertex("name", "stephen", "age", 35)
 
         // a tricky way to evaluate if indices are actually being used is to pass a fake BiPredicate to has()
         // to get into the Pipeline and evaluate what's going through it.  in this case, we know that at index
         // is not used because "stephen" and "marko" ages both pass through the pipeline.
-        assertEquals(new Long(1), g.traversal().V().has("age", P.test((t, u) -> {
-            assertTrue(t.equals(35) || t.equals(29));
-            return true;
-        }, 35)).has("name", "stephen").count().next());
-
-        g.createIndex("name", Vertex.class);
+        Assert.assertEquals(
+            1, g.traversal().V().has("age", P.test(
+                BiPredicate<*, *> { t: Any, u: Any? ->
+                    Assert.assertTrue(t == 35 || t == 29)
+                    true
+                }, 35
+            )
+            ).has("name", "stephen").count().next()
+        )
+        g.createIndex("name", Vertex::class.java)
 
         // another spy into the pipeline for index check.  in this case, we know that at index
         // is used because only "stephen" ages should pass through the pipeline due to the inclusion of the
         // key index lookup on "name".  If there's an age of something other than 35 in the pipeline being evaluated
         // then something is wrong.
-        assertEquals(new Long(1), g.traversal().V().has("age", P.test((t, u) -> {
-            assertEquals(35, t);
-            return true;
-        }, 35)).has("name", "stephen").count().next());
+        Assert.assertEquals(
+            1, g.traversal().V().has("age", P.test(
+                BiPredicate<*, *> { t: Any?, u: Any? ->
+                    Assert.assertEquals(35, t)
+                    true
+                }, 35
+            )
+            ).has("name", "stephen").count().next()
+        )
     }
 
     @Test
-    public void shouldUpdateEdgeIndicesInNewGraph() {
-        final TinkerCat g = TinkerCat.open();
-        g.createIndex("oid", Edge.class);
-
-        final Vertex v = g.addVertex();
-        v.addEdge("friend", v, "oid", "1", "weight", 0.5f);
-        v.addEdge("friend", v, "oid", "2", "weight", 0.6f);
+    fun shouldUpdateEdgeIndicesInNewGraph() {
+        val g = TinkerCat.open()
+        g.createIndex("oid", Edge::class.java)
+        val v = g.addVertex()
+        v.addEdge("friend", v, "oid", "1", "weight", 0.5f)
+        v.addEdge("friend", v, "oid", "2", "weight", 0.6f)
 
         // a tricky way to evaluate if indices are actually being used is to pass a fake BiPredicate to has()
         // to get into the Pipeline and evaluate what's going through it.  in this case, we know that at index
         // is used because only oid 1 should pass through the pipeline due to the inclusion of the
         // key index lookup on "oid".  If there's an weight of something other than 0.5f in the pipeline being
         // evaluated then something is wrong.
-        assertEquals(new Long(1), g.traversal().E().has("weight", P.test((t, u) -> {
-            assertEquals(0.5f, t);
-            return true;
-        }, 0.5)).has("oid", "1").count().next());
+        Assert.assertEquals(
+            1, g.traversal().E().has("weight", P.test(
+                BiPredicate<*, *> { t: Any?, u: Any? ->
+                    Assert.assertEquals(0.5f, t)
+                    true
+                }, 0.5
+            )
+            ).has("oid", "1").count().next()
+        )
     }
 
     @Test
-    public void shouldRemoveEdgeFromAnIndex() {
-        final TinkerCat g = TinkerCat.open();
-        g.createIndex("oid", Edge.class);
-
-        final Vertex v = g.addVertex();
-        v.addEdge("friend", v, "oid", "1", "weight", 0.5f);
-        final Edge e = v.addEdge("friend", v, "oid", "1", "weight", 0.5f);
-        v.addEdge("friend", v, "oid", "2", "weight", 0.6f);
+    fun shouldRemoveEdgeFromAnIndex() {
+        val g = TinkerCat.open()
+        g.createIndex("oid", Edge::class.java)
+        val v = g.addVertex()
+        v.addEdge("friend", v, "oid", "1", "weight", 0.5f)
+        val e = v.addEdge("friend", v, "oid", "1", "weight", 0.5f)
+        v.addEdge("friend", v, "oid", "2", "weight", 0.6f)
 
         // a tricky way to evaluate if indices are actually being used is to pass a fake BiPredicate to has()
         // to get into the Pipeline and evaluate what's going through it.  in this case, we know that at index
         // is used because only oid 1 should pass through the pipeline due to the inclusion of the
         // key index lookup on "oid".  If there's an weight of something other than 0.5f in the pipeline being
         // evaluated then something is wrong.
-        assertEquals(new Long(2), g.traversal().E().has("weight", P.test((t, u) -> {
-            assertEquals(0.5f, t);
-            return true;
-        }, 0.5)).has("oid", "1").count().next());
-
-        e.remove();
-        assertEquals(new Long(1), g.traversal().E().has("weight", P.test((t, u) -> {
-            assertEquals(0.5f, t);
-            return true;
-        }, 0.5)).has("oid", "1").count().next());
+        Assert.assertEquals(
+            2, g.traversal().E().has("weight", P.test(
+                BiPredicate<*, *> { t: Any?, u: Any? ->
+                    Assert.assertEquals(0.5f, t)
+                    true
+                }, 0.5
+            )
+            ).has("oid", "1").count().next()
+        )
+        e.remove()
+        Assert.assertEquals(
+            1, g.traversal().E().has("weight", P.test(
+                BiPredicate<*, *> { t: Any?, u: Any? ->
+                    Assert.assertEquals(0.5f, t)
+                    true
+                }, 0.5
+            )
+            ).has("oid", "1").count().next()
+        )
     }
 
     @Test
-    public void shouldUpdateEdgeIndicesInExistingGraph() {
-        final TinkerCat g = TinkerCat.open();
-
-        final Vertex v = g.addVertex();
-        v.addEdge("friend", v, "oid", "1", "weight", 0.5f);
-        v.addEdge("friend", v, "oid", "2", "weight", 0.6f);
+    fun shouldUpdateEdgeIndicesInExistingGraph() {
+        val g = TinkerCat.open()
+        val v = g.addVertex()
+        v.addEdge("friend", v, "oid", "1", "weight", 0.5f)
+        v.addEdge("friend", v, "oid", "2", "weight", 0.6f)
 
         // a tricky way to evaluate if indices are actually being used is to pass a fake BiPredicate to has()
         // to get into the Pipeline and evaluate what's going through it.  in this case, we know that at index
         // is not used because "1" and "2" weights both pass through the pipeline.
-        assertEquals(new Long(1), g.traversal().E().has("weight", P.test((t, u) -> {
-            assertTrue(t.equals(0.5f) || t.equals(0.6f));
-            return true;
-        }, 0.5)).has("oid", "1").count().next());
-
-        g.createIndex("oid", Edge.class);
+        Assert.assertEquals(
+            1, g.traversal().E().has("weight", P.test(
+                BiPredicate<*, *> { t: Any, u: Any? ->
+                    Assert.assertTrue(t == 0.5f || t == 0.6f)
+                    true
+                }, 0.5
+            )
+            ).has("oid", "1").count().next()
+        )
+        g.createIndex("oid", Edge::class.java)
 
         // another spy into the pipeline for index check.  in this case, we know that at index
         // is used because only oid 1 should pass through the pipeline due to the inclusion of the
         // key index lookup on "oid".  If there's an weight of something other than 0.5f in the pipeline being
         // evaluated then something is wrong.
-        assertEquals(new Long(1), g.traversal().E().has("weight", P.test((t, u) -> {
-            assertEquals(0.5f, t);
-            return true;
-        }, 0.5)).has("oid", "1").count().next());
+        Assert.assertEquals(
+            1, g.traversal().E().has("weight", P.test(
+                BiPredicate<*, *> { t: Any?, u: Any? ->
+                    Assert.assertEquals(0.5f, t)
+                    true
+                }, 0.5
+            )
+            ).has("oid", "1").count().next()
+        )
     }
 
     @Test
-    public void shouldSerializeTinkerCatToGryo() throws Exception {
-        final TinkerCat graph = TinkerFactory.createModern();
-        try (final ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            graph.io(IoCore.gryo()).writer().create().writeObject(out, graph);
-            final byte[] b = out.toByteArray();
-            try (final ByteArrayInputStream inputStream = new ByteArrayInputStream(b)) {
-                final TinkerCat target = graph.io(IoCore.gryo()).reader().create().readObject(inputStream, TinkerCat.class);
-                IoTest.assertModernGraph(target, true, false);
+    @Throws(Exception::class)
+    fun shouldSerializeTinkerCatToGryo() {
+        val graph = TinkerFactory.createModern()
+        ByteArrayOutputStream().use { out ->
+            graph.io<GryoIo>(IoCore.gryo()).writer().create().writeObject(out, graph)
+            val b = out.toByteArray()
+            ByteArrayInputStream(b).use { inputStream ->
+                val target: TinkerCat = graph.io<GryoIo>(IoCore.gryo()).reader().create()
+                    .readObject<TinkerCat>(inputStream, TinkerCat::class.java)
+                IoTest.assertModernGraph(target, true, false)
             }
         }
     }
 
     @Test
-    public void shouldSerializeTinkerCatWithMultiPropertiesToGryo() throws Exception {
-        final TinkerCat graph = TinkerFactory.createTheCrew();
-        try (final ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            graph.io(IoCore.gryo()).writer().create().writeObject(out, graph);
-            final byte[] b = out.toByteArray();
-            try (final ByteArrayInputStream inputStream = new ByteArrayInputStream(b)) {
-                final TinkerCat target = graph.io(IoCore.gryo()).reader().create().readObject(inputStream, TinkerCat.class);
-                IoTest.assertCrewGraph(target, false);
+    @Throws(Exception::class)
+    fun shouldSerializeTinkerCatWithMultiPropertiesToGryo() {
+        val graph = TinkerFactory.createTheCrew()
+        ByteArrayOutputStream().use { out ->
+            graph.io<GryoIo>(IoCore.gryo()).writer().create().writeObject(out, graph)
+            val b = out.toByteArray()
+            ByteArrayInputStream(b).use { inputStream ->
+                val target: TinkerCat = graph.io<GryoIo>(IoCore.gryo()).reader().create()
+                    .readObject<TinkerCat>(inputStream, TinkerCat::class.java)
+                IoTest.assertCrewGraph(target, false)
             }
         }
     }
 
     @Test
-    public void shouldSerializeTinkerCatToGraphSON() throws Exception {
-        final TinkerCat graph = TinkerFactory.createModern();
-        try (final ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            graph.io(IoCore.graphson()).writer().create().writeObject(out, graph);
-            try (final ByteArrayInputStream inputStream = new ByteArrayInputStream(out.toByteArray())) {
-                final TinkerCat target = graph.io(IoCore.graphson()).reader().create().readObject(inputStream, TinkerCat.class);
-                IoTest.assertModernGraph(target, true, false);
+    @Throws(Exception::class)
+    fun shouldSerializeTinkerCatToGraphSON() {
+        val graph = TinkerFactory.createModern()
+        ByteArrayOutputStream().use { out ->
+            graph.io<GraphSONIo>(IoCore.graphson()).writer().create().writeObject(out, graph)
+            ByteArrayInputStream(out.toByteArray()).use { inputStream ->
+                val target: TinkerCat = graph.io<GraphSONIo>(IoCore.graphson()).reader().create()
+                    .readObject<TinkerCat>(inputStream, TinkerCat::class.java)
+                IoTest.assertModernGraph(target, true, false)
             }
         }
     }
 
     @Test
-    public void shouldSerializeTinkerCatWithMultiPropertiesToGraphSON() throws Exception {
-        final TinkerCat graph = TinkerFactory.createTheCrew();
-        try (final ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            graph.io(IoCore.graphson()).writer().create().writeObject(out, graph);
-            try (final ByteArrayInputStream inputStream = new ByteArrayInputStream(out.toByteArray())) {
-                final TinkerCat target = graph.io(IoCore.graphson()).reader().create().readObject(inputStream, TinkerCat.class);
-                IoTest.assertCrewGraph(target, false);
+    @Throws(Exception::class)
+    fun shouldSerializeTinkerCatWithMultiPropertiesToGraphSON() {
+        val graph = TinkerFactory.createTheCrew()
+        ByteArrayOutputStream().use { out ->
+            graph.io<GraphSONIo>(IoCore.graphson()).writer().create().writeObject(out, graph)
+            ByteArrayInputStream(out.toByteArray()).use { inputStream ->
+                val target: TinkerCat = graph.io<GraphSONIo>(IoCore.graphson()).reader().create()
+                    .readObject<TinkerCat>(inputStream, TinkerCat::class.java)
+                IoTest.assertCrewGraph(target, false)
             }
         }
     }
 
     @Test
-    public void shouldSerializeTinkerCatToGraphSONWithTypes() throws Exception {
-        final TinkerCat graph = TinkerFactory.createModern();
-        final Mapper<ObjectMapper> mapper = graph.io(IoCore.graphson()).mapper().typeInfo(TypeInfo.PARTIAL_TYPES).create();
-        try (final ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            final GraphWriter writer = GraphSONWriter.build().mapper(mapper).create();
-            writer.writeObject(out, graph);
-            try (final ByteArrayInputStream inputStream = new ByteArrayInputStream(out.toByteArray())) {
-                final GraphReader reader = GraphSONReader.build().mapper(mapper).create();
-                final TinkerCat target = reader.readObject(inputStream, TinkerCat.class);
-                IoTest.assertModernGraph(target, true, false);
+    @Throws(Exception::class)
+    fun shouldSerializeTinkerCatToGraphSONWithTypes() {
+        val graph = TinkerFactory.createModern()
+        val mapper: Mapper<ObjectMapper> =
+            graph.io<GraphSONIo>(IoCore.graphson()).mapper().typeInfo(TypeInfo.PARTIAL_TYPES).create()
+        ByteArrayOutputStream().use { out ->
+            val writer: GraphWriter = GraphSONWriter.build().mapper(mapper).create()
+            writer.writeObject(out, graph)
+            ByteArrayInputStream(out.toByteArray()).use { inputStream ->
+                val reader: GraphReader = GraphSONReader.build().mapper(mapper).create()
+                val target = reader.readObject(inputStream, TinkerCat::class.java)
+                IoTest.assertModernGraph(target, true, false)
             }
         }
     }
 
-    @Test(expected = IllegalStateException.class)
-    public void shouldRequireGraphLocationIfFormatIsSet() {
-        final Configuration conf = new BaseConfiguration();
-        conf.setProperty(TinkerCat.GREMLIN_TINKERGRAPH_GRAPH_FORMAT, "graphml");
-        TinkerCat.open(conf);
+    @Test(expected = IllegalStateException::class)
+    fun shouldRequireGraphLocationIfFormatIsSet() {
+        val conf: Configuration = BaseConfiguration()
+        conf.setProperty(TinkerCat.GREMLIN_TINKERGRAPH_GRAPH_FORMAT, "graphml")
+        TinkerCat.open(conf)
     }
 
-    @Test(expected = IllegalStateException.class)
-    public void shouldNotModifyAVertexThatWasRemoved() {
-        final TinkerCat graph = TinkerCat.open();
-        final Vertex v = graph.addVertex();
-        v.property("name", "stephen");
-
-        assertEquals("stephen", v.value("name"));
-        v.remove();
-
-        v.property("status", 1);
+    @Test(expected = IllegalStateException::class)
+    fun shouldNotModifyAVertexThatWasRemoved() {
+        val graph = TinkerCat.open()
+        val v = graph.addVertex()
+        v.property("name", "stephen")
+        Assert.assertEquals("stephen", v.value("name"))
+        v.remove()
+        v.property("status", 1)
     }
 
-    @Test(expected = IllegalStateException.class)
-    public void shouldNotAddEdgeToAVertexThatWasRemoved() {
-        final TinkerCat graph = TinkerCat.open();
-        final Vertex v = graph.addVertex();
-        v.property("name", "stephen");
-
-        assertEquals("stephen", v.value("name"));
-        v.remove();
-        v.addEdge("self", v);
+    @Test(expected = IllegalStateException::class)
+    fun shouldNotAddEdgeToAVertexThatWasRemoved() {
+        val graph = TinkerCat.open()
+        val v = graph.addVertex()
+        v.property("name", "stephen")
+        Assert.assertEquals("stephen", v.value("name"))
+        v.remove()
+        v.addEdge("self", v)
     }
 
-    @Test(expected = IllegalStateException.class)
-    public void shouldNotReadValueOfPropertyOnVertexThatWasRemoved() {
-        final TinkerCat graph = TinkerCat.open();
-        final Vertex v = graph.addVertex();
-        v.property("name", "stephen");
-
-        assertEquals("stephen", v.value("name"));
-        v.remove();
-        v.value("name");
+    @Test(expected = IllegalStateException::class)
+    fun shouldNotReadValueOfPropertyOnVertexThatWasRemoved() {
+        val graph = TinkerCat.open()
+        val v = graph.addVertex()
+        v.property("name", "stephen")
+        Assert.assertEquals("stephen", v.value("name"))
+        v.remove()
+        v.value<Any>("name")
     }
 
-    @Test(expected = IllegalStateException.class)
-    public void shouldRequireGraphFormatIfLocationIsSet() {
-        final Configuration conf = new BaseConfiguration();
-        conf.setProperty(TinkerCat.GREMLIN_TINKERGRAPH_GRAPH_LOCATION, TestHelper.makeTestDataDirectory(TinkerCatTest.class));
-        TinkerCat.open(conf);
-    }
-
-    @Test
-    public void shouldPersistToGraphML() {
-        final String graphLocation = TestHelper.makeTestDataFile(TinkerCatTest.class, "shouldPersistToGraphML.xml");
-        final File f = new File(graphLocation);
-        if (f.exists() && f.isFile()) f.delete();
-
-        final Configuration conf = new BaseConfiguration();
-        conf.setProperty(TinkerCat.GREMLIN_TINKERGRAPH_GRAPH_FORMAT, "graphml");
-        conf.setProperty(TinkerCat.GREMLIN_TINKERGRAPH_GRAPH_LOCATION, graphLocation);
-        final TinkerCat graph = TinkerCat.open(conf);
-        TinkerFactory.generateModern(graph);
-        graph.close();
-
-        final TinkerCat reloadedGraph = TinkerCat.open(conf);
-        IoTest.assertModernGraph(reloadedGraph, true, true);
-        reloadedGraph.close();
+    @Test(expected = IllegalStateException::class)
+    fun shouldRequireGraphFormatIfLocationIsSet() {
+        val conf: Configuration = BaseConfiguration()
+        conf.setProperty(
+            TinkerCat.GREMLIN_TINKERGRAPH_GRAPH_LOCATION,
+            TestHelper.makeTestDataDirectory(TinkerCatTest::class.java)
+        )
+        TinkerCat.open(conf)
     }
 
     @Test
-    public void shouldPersistToGraphSON() {
-        final String graphLocation = TestHelper.makeTestDataFile(TinkerCatTest.class, "shouldPersistToGraphSON.json");
-        final File f = new File(graphLocation);
-        if (f.exists() && f.isFile()) f.delete();
-
-        final Configuration conf = new BaseConfiguration();
-        conf.setProperty(TinkerCat.GREMLIN_TINKERGRAPH_GRAPH_FORMAT, "graphson");
-        conf.setProperty(TinkerCat.GREMLIN_TINKERGRAPH_GRAPH_LOCATION, graphLocation);
-        final TinkerCat graph = TinkerCat.open(conf);
-        TinkerFactory.generateModern(graph);
-        graph.close();
-
-        final TinkerCat reloadedGraph = TinkerCat.open(conf);
-        IoTest.assertModernGraph(reloadedGraph, true, false);
-        reloadedGraph.close();
+    fun shouldPersistToGraphML() {
+        val graphLocation: String = TestHelper.makeTestDataFile(TinkerCatTest::class.java, "shouldPersistToGraphML.xml")
+        val f = File(graphLocation)
+        if (f.exists() && f.isFile) f.delete()
+        val conf: Configuration = BaseConfiguration()
+        conf.setProperty(TinkerCat.GREMLIN_TINKERGRAPH_GRAPH_FORMAT, "graphml")
+        conf.setProperty(TinkerCat.GREMLIN_TINKERGRAPH_GRAPH_LOCATION, graphLocation)
+        val graph = TinkerCat.open(conf)
+        TinkerFactory.generateModern(graph)
+        graph.close()
+        val reloadedGraph = TinkerCat.open(conf)
+        IoTest.assertModernGraph(reloadedGraph, true, true)
+        reloadedGraph.close()
     }
 
     @Test
-    public void shouldPersistToGryo() {
-        final String graphLocation = TestHelper.makeTestDataFile(TinkerCatTest.class, "shouldPersistToGryo.kryo");
-        final File f = new File(graphLocation);
-        if (f.exists() && f.isFile()) f.delete();
-
-        final Configuration conf = new BaseConfiguration();
-        conf.setProperty(TinkerCat.GREMLIN_TINKERGRAPH_GRAPH_FORMAT, "gryo");
-        conf.setProperty(TinkerCat.GREMLIN_TINKERGRAPH_GRAPH_LOCATION, graphLocation);
-        final TinkerCat graph = TinkerCat.open(conf);
-        TinkerFactory.generateModern(graph);
-        graph.close();
-
-        final TinkerCat reloadedGraph = TinkerCat.open(conf);
-        IoTest.assertModernGraph(reloadedGraph, true, false);
-        reloadedGraph.close();
+    fun shouldPersistToGraphSON() {
+        val graphLocation: String =
+            TestHelper.makeTestDataFile(TinkerCatTest::class.java, "shouldPersistToGraphSON.json")
+        val f = File(graphLocation)
+        if (f.exists() && f.isFile) f.delete()
+        val conf: Configuration = BaseConfiguration()
+        conf.setProperty(TinkerCat.GREMLIN_TINKERGRAPH_GRAPH_FORMAT, "graphson")
+        conf.setProperty(TinkerCat.GREMLIN_TINKERGRAPH_GRAPH_LOCATION, graphLocation)
+        val graph = TinkerCat.open(conf)
+        TinkerFactory.generateModern(graph)
+        graph.close()
+        val reloadedGraph = TinkerCat.open(conf)
+        IoTest.assertModernGraph(reloadedGraph, true, false)
+        reloadedGraph.close()
     }
 
     @Test
-    public void shouldPersistToGryoAndHandleMultiProperties() {
-        final String graphLocation = TestHelper.makeTestDataFile(TinkerCatTest.class, "shouldPersistToGryoMulti.kryo");
-        final File f = new File(graphLocation);
-        if (f.exists() && f.isFile()) f.delete();
-
-        final Configuration conf = new BaseConfiguration();
-        conf.setProperty(TinkerCat.GREMLIN_TINKERGRAPH_GRAPH_FORMAT, "gryo");
-        conf.setProperty(TinkerCat.GREMLIN_TINKERGRAPH_GRAPH_LOCATION, graphLocation);
-        final TinkerCat graph = TinkerCat.open(conf);
-        TinkerFactory.generateTheCrew(graph);
-        graph.close();
-
-        conf.setProperty(TinkerCat.GREMLIN_TINKERGRAPH_DEFAULT_VERTEX_PROPERTY_CARDINALITY, VertexProperty.Cardinality.list.toString());
-        final TinkerCat reloadedGraph = TinkerCat.open(conf);
-        IoTest.assertCrewGraph(reloadedGraph, false);
-        reloadedGraph.close();
+    fun shouldPersistToGryo() {
+        val graphLocation: String = TestHelper.makeTestDataFile(TinkerCatTest::class.java, "shouldPersistToGryo.kryo")
+        val f = File(graphLocation)
+        if (f.exists() && f.isFile) f.delete()
+        val conf: Configuration = BaseConfiguration()
+        conf.setProperty(TinkerCat.GREMLIN_TINKERGRAPH_GRAPH_FORMAT, "gryo")
+        conf.setProperty(TinkerCat.GREMLIN_TINKERGRAPH_GRAPH_LOCATION, graphLocation)
+        val graph = TinkerCat.open(conf)
+        TinkerFactory.generateModern(graph)
+        graph.close()
+        val reloadedGraph = TinkerCat.open(conf)
+        IoTest.assertModernGraph(reloadedGraph, true, false)
+        reloadedGraph.close()
     }
 
     @Test
-    public void shouldPersistWithRelativePath() {
-        final String graphLocation = TestHelper.convertToRelative(TinkerCatTest.class,
-                                                                  TestHelper.makeTestDataPath(TinkerCatTest.class))
-                                     + "shouldPersistToGryoRelative.kryo";
-        final File f = new File(graphLocation);
-        if (f.exists() && f.isFile()) f.delete();
-
-        final Configuration conf = new BaseConfiguration();
-        conf.setProperty(TinkerCat.GREMLIN_TINKERGRAPH_GRAPH_FORMAT, "gryo");
-        conf.setProperty(TinkerCat.GREMLIN_TINKERGRAPH_GRAPH_LOCATION, graphLocation);
-        final TinkerCat graph = TinkerCat.open(conf);
-        TinkerFactory.generateModern(graph);
-        graph.close();
-
-        final TinkerCat reloadedGraph = TinkerCat.open(conf);
-        IoTest.assertModernGraph(reloadedGraph, true, false);
-        reloadedGraph.close();
+    fun shouldPersistToGryoAndHandleMultiProperties() {
+        val graphLocation: String =
+            TestHelper.makeTestDataFile(TinkerCatTest::class.java, "shouldPersistToGryoMulti.kryo")
+        val f = File(graphLocation)
+        if (f.exists() && f.isFile) f.delete()
+        val conf: Configuration = BaseConfiguration()
+        conf.setProperty(TinkerCat.GREMLIN_TINKERGRAPH_GRAPH_FORMAT, "gryo")
+        conf.setProperty(TinkerCat.GREMLIN_TINKERGRAPH_GRAPH_LOCATION, graphLocation)
+        val graph = TinkerCat.open(conf)
+        TinkerFactory.generateTheCrew(graph)
+        graph.close()
+        conf.setProperty(
+            TinkerCat.GREMLIN_TINKERGRAPH_DEFAULT_VERTEX_PROPERTY_CARDINALITY,
+            VertexProperty.Cardinality.list.toString()
+        )
+        val reloadedGraph = TinkerCat.open(conf)
+        IoTest.assertCrewGraph(reloadedGraph, false)
+        reloadedGraph.close()
     }
 
     @Test
-    public void shouldPersistToAnyGraphFormat() {
-        final String graphLocation = TestHelper.makeTestDataFile(TinkerCatTest.class, "shouldPersistToAnyGraphFormat.dat");
-        final File f = new File(graphLocation);
-        if (f.exists() && f.isFile()) f.delete();
+    fun shouldPersistWithRelativePath() {
+        val graphLocation: String = (TestHelper.convertToRelative(
+            TinkerCatTest::class.java,
+            TestHelper.makeTestDataPath(TinkerCatTest::class.java)
+        )
+                + "shouldPersistToGryoRelative.kryo")
+        val f = File(graphLocation)
+        if (f.exists() && f.isFile) f.delete()
+        val conf: Configuration = BaseConfiguration()
+        conf.setProperty(TinkerCat.GREMLIN_TINKERGRAPH_GRAPH_FORMAT, "gryo")
+        conf.setProperty(TinkerCat.GREMLIN_TINKERGRAPH_GRAPH_LOCATION, graphLocation)
+        val graph = TinkerCat.open(conf)
+        TinkerFactory.generateModern(graph)
+        graph.close()
+        val reloadedGraph = TinkerCat.open(conf)
+        IoTest.assertModernGraph(reloadedGraph, true, false)
+        reloadedGraph.close()
+    }
 
-        final Configuration conf = new BaseConfiguration();
-        conf.setProperty(TinkerCat.GREMLIN_TINKERGRAPH_GRAPH_FORMAT, TestIoBuilder.class.getName());
-        conf.setProperty(TinkerCat.GREMLIN_TINKERGRAPH_GRAPH_LOCATION, graphLocation);
-        final TinkerCat graph = TinkerCat.open(conf);
-        TinkerFactory.generateModern(graph);
+    @Test
+    fun shouldPersistToAnyGraphFormat() {
+        val graphLocation: String =
+            TestHelper.makeTestDataFile(TinkerCatTest::class.java, "shouldPersistToAnyGraphFormat.dat")
+        val f = File(graphLocation)
+        if (f.exists() && f.isFile) f.delete()
+        val conf: Configuration = BaseConfiguration()
+        conf.setProperty(TinkerCat.GREMLIN_TINKERGRAPH_GRAPH_FORMAT, TestIoBuilder::class.java.name)
+        conf.setProperty(TinkerCat.GREMLIN_TINKERGRAPH_GRAPH_LOCATION, graphLocation)
+        val graph = TinkerCat.open(conf)
+        TinkerFactory.generateModern(graph)
 
         //Test write graph
-        graph.close();
-        assertEquals(TestIoBuilder.calledOnMapper, 1);
-        assertEquals(TestIoBuilder.calledGraph, 1);
-        assertEquals(TestIoBuilder.calledCreate, 1);
-
-        try (BufferedOutputStream os = new BufferedOutputStream(new FileOutputStream(f))){
-            os.write("dummy string".getBytes());
-        } catch (Exception e) {
-            e.printStackTrace();
+        graph.close()
+        Assert.assertEquals(TestIoBuilder.calledOnMapper.toLong(), 1)
+        Assert.assertEquals(TestIoBuilder.calledGraph.toLong(), 1)
+        Assert.assertEquals(TestIoBuilder.calledCreate.toLong(), 1)
+        try {
+            BufferedOutputStream(FileOutputStream(f)).use { os -> os.write("dummy string".toByteArray()) }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
 
         //Test read graph
-        final TinkerCat readGraph = TinkerCat.open(conf);
-        assertEquals(TestIoBuilder.calledOnMapper, 1);
-        assertEquals(TestIoBuilder.calledGraph, 1);
-        assertEquals(TestIoBuilder.calledCreate, 1);
+        val readGraph = TinkerCat.open(conf)
+        Assert.assertEquals(TestIoBuilder.calledOnMapper.toLong(), 1)
+        Assert.assertEquals(TestIoBuilder.calledGraph.toLong(), 1)
+        Assert.assertEquals(TestIoBuilder.calledCreate.toLong(), 1)
     }
 
     @Test
-    public void shouldSerializeWithColorClassResolverToTinkerCat() throws Exception {
-        final Map<String,Color> colors = new HashMap<>();
-        colors.put("red", Color.RED);
-        colors.put("green", Color.GREEN);
-
-        final ArrayList<Color> colorList = new ArrayList<>(Arrays.asList(Color.RED, Color.GREEN));
-
-        final Supplier<ClassResolver> classResolver = new CustomClassResolverSupplier();
-        final GryoMapper mapper = GryoMapper.build().version(GryoVersion.V3_0).addRegistry(TinkerIoRegistryV3d0.instance()).classResolver(classResolver).create();
-        final Kryo kryo = mapper.createMapper();
-        try (final ByteArrayOutputStream stream = new ByteArrayOutputStream()) {
-            final Output out = new Output(stream);
-
-            kryo.writeObject(out, colorList);
-            out.flush();
-            final byte[] b = stream.toByteArray();
-
-            try (final InputStream inputStream = new ByteArrayInputStream(b)) {
-                final Input input = new Input(inputStream);
-                final List m = kryo.readObject(input, ArrayList.class);
-                final TinkerCat readX = (TinkerCat) m.get(0);
-                assertEquals(104, IteratorUtils.count(readX.vertices()));
-                assertEquals(102, IteratorUtils.count(readX.edges()));
+    @Throws(Exception::class)
+    fun shouldSerializeWithColorClassResolverToTinkerCat() {
+        val colors: MutableMap<String, Color> = HashMap()
+        colors["red"] = Color.RED
+        colors["green"] = Color.GREEN
+        val colorList: ArrayList<Color> = ArrayList<Color>(Arrays.asList<Color>(Color.RED, Color.GREEN))
+        val classResolver: Supplier<ClassResolver> = CustomClassResolverSupplier()
+        val mapper: GryoMapper =
+            GryoMapper.build().version(GryoVersion.V3_0).addRegistry(TinkerIoRegistryV3d0.instance())
+                .classResolver(classResolver).create()
+        val kryo: Kryo = mapper.createMapper()
+        ByteArrayOutputStream().use { stream ->
+            val out = Output(stream)
+            kryo.writeObject(out, colorList)
+            out.flush()
+            val b = stream.toByteArray()
+            ByteArrayInputStream(b).use { inputStream ->
+                val input = Input(inputStream)
+                val m: List<*> = kryo.readObject(input, ArrayList::class.java)
+                val readX = m[0] as TinkerCat
+                Assert.assertEquals(104, IteratorUtils.count(readX.vertices()))
+                Assert.assertEquals(102, IteratorUtils.count(readX.edges()))
             }
         }
     }
 
     @Test
-    public void shouldSerializeWithColorClassResolverToTinkerCatUsingDeprecatedTinkerIoRegistry() throws Exception {
-        final Map<String,Color> colors = new HashMap<>();
-        colors.put("red", Color.RED);
-        colors.put("green", Color.GREEN);
-
-        final ArrayList<Color> colorList = new ArrayList<>(Arrays.asList(Color.RED, Color.GREEN));
-
-        final Supplier<ClassResolver> classResolver = new CustomClassResolverSupplier();
-        final GryoMapper mapper = GryoMapper.build().version(GryoVersion.V3_0).addRegistry(TinkerIoRegistryV3d0.instance()).classResolver(classResolver).create();
-        final Kryo kryo = mapper.createMapper();
-        try (final ByteArrayOutputStream stream = new ByteArrayOutputStream()) {
-            final Output out = new Output(stream);
-
-            kryo.writeObject(out, colorList);
-            out.flush();
-            final byte[] b = stream.toByteArray();
-
-            try (final InputStream inputStream = new ByteArrayInputStream(b)) {
-                final Input input = new Input(inputStream);
-                final List m = kryo.readObject(input, ArrayList.class);
-                final TinkerCat readX = (TinkerCat) m.get(0);
-                assertEquals(104, IteratorUtils.count(readX.vertices()));
-                assertEquals(102, IteratorUtils.count(readX.edges()));
+    @Throws(Exception::class)
+    fun shouldSerializeWithColorClassResolverToTinkerCatUsingDeprecatedTinkerIoRegistry() {
+        val colors: MutableMap<String, Color> = HashMap()
+        colors["red"] = Color.RED
+        colors["green"] = Color.GREEN
+        val colorList: ArrayList<Color> = ArrayList<Color>(Arrays.asList<Color>(Color.RED, Color.GREEN))
+        val classResolver: Supplier<ClassResolver> = CustomClassResolverSupplier()
+        val mapper: GryoMapper =
+            GryoMapper.build().version(GryoVersion.V3_0).addRegistry(TinkerIoRegistryV3d0.instance())
+                .classResolver(classResolver).create()
+        val kryo: Kryo = mapper.createMapper()
+        ByteArrayOutputStream().use { stream ->
+            val out = Output(stream)
+            kryo.writeObject(out, colorList)
+            out.flush()
+            val b = stream.toByteArray()
+            ByteArrayInputStream(b).use { inputStream ->
+                val input = Input(inputStream)
+                val m: List<*> = kryo.readObject(input, ArrayList::class.java)
+                val readX = m[0] as TinkerCat
+                Assert.assertEquals(104, IteratorUtils.count(readX.vertices()))
+                Assert.assertEquals(102, IteratorUtils.count(readX.edges()))
             }
         }
     }
 
     @Test
-    public void shouldCloneTinkergraph() {
-        final TinkerCat original = TinkerCat.open();
-        final TinkerCat clone = TinkerCat.open();
-
-        final Vertex marko = original.addVertex("name", "marko", "age", 29);
-        final Vertex stephen = original.addVertex("name", "stephen", "age", 35);
-        marko.addEdge("knows", stephen);
-        GraphHelper.cloneElements(original, clone);
-
-        final Vertex michael = clone.addVertex("name", "michael");
-        michael.addEdge("likes", marko);
-        michael.addEdge("likes", stephen);
-        clone.traversal().V().property("newProperty", "someValue").toList();
-        clone.traversal().E().property("newProperty", "someValue").toList();
-
-        assertEquals("original graph should be unchanged", new Long(2), original.traversal().V().count().next());
-        assertEquals("original graph should be unchanged", new Long(1), original.traversal().E().count().next());
-        assertEquals("original graph should be unchanged", new Long(0), original.traversal().V().has("newProperty").count().next());
-
-        assertEquals("cloned graph should contain new elements", new Long(3), clone.traversal().V().count().next());
-        assertEquals("cloned graph should contain new elements", new Long(3), clone.traversal().E().count().next());
-        assertEquals("cloned graph should contain new property", new Long(3), clone.traversal().V().has("newProperty").count().next());
-        assertEquals("cloned graph should contain new property", new Long(3), clone.traversal().E().has("newProperty").count().next());
-
-        assertNotSame("cloned elements should reference to different objects",
+    fun shouldCloneTinkergraph() {
+        val original = TinkerCat.open()
+        val clone = TinkerCat.open()
+        val marko = original.addVertex("name", "marko", "age", 29)
+        val stephen = original.addVertex("name", "stephen", "age", 35)
+        marko.addEdge("knows", stephen)
+        GraphHelper.cloneElements(original, clone)
+        val michael = clone.addVertex("name", "michael")
+        michael.addEdge("likes", marko)
+        michael.addEdge("likes", stephen)
+        clone.traversal().V().property("newProperty", "someValue").toList()
+        clone.traversal().E().property("newProperty", "someValue").toList()
+        Assert.assertEquals("original graph should be unchanged", 2, original.traversal().V().count().next())
+        Assert.assertEquals("original graph should be unchanged", 1, original.traversal().E().count().next())
+        Assert.assertEquals(
+            "original graph should be unchanged",
+            0,
+            original.traversal().V().has("newProperty").count().next()
+        )
+        Assert.assertEquals("cloned graph should contain new elements", 3, clone.traversal().V().count().next())
+        Assert.assertEquals("cloned graph should contain new elements", 3, clone.traversal().E().count().next())
+        Assert.assertEquals(
+            "cloned graph should contain new property",
+            3,
+            clone.traversal().V().has("newProperty").count().next()
+        )
+        Assert.assertEquals(
+            "cloned graph should contain new property",
+            3,
+            clone.traversal().E().has("newProperty").count().next()
+        )
+        Assert.assertNotSame(
+            "cloned elements should reference to different objects",
             original.traversal().V().has("name", "stephen").next(),
-            clone.traversal().V().has("name", "stephen").next());
+            clone.traversal().V().has("name", "stephen").next()
+        )
     }
 
     /**
@@ -649,17 +646,15 @@ public class TinkerCatTest {
      * particular problem originally noted in TINKERPOP-1992.
      */
     @Test
-    public void shouldProperlyTimeReducingBarrierForProfile() {
-        final GraphTraversalSource g = TinkerFactory.createModern().traversal();
-
-        TraversalMetrics m = g.V().group().by().by(__.bothE().count()).profile().next();
-        for (Metrics i : m.getMetrics(1).getNested()) {
-            assertThat(i.getDuration(TimeUnit.NANOSECONDS), greaterThan(0L));
+    fun shouldProperlyTimeReducingBarrierForProfile() {
+        val g: GraphTraversalSource = TinkerFactory.createModern().traversal()
+        var m: TraversalMetrics = g.V().group<Any, Any>().by().by(__.bothE().count()).profile().next()
+        for (i in m.getMetrics(1).getNested()) {
+            MatcherAssert.assertThat(i.getDuration(TimeUnit.NANOSECONDS), Matchers.greaterThan(0L))
         }
-
-        m = g.withComputer().V().group().by().by(__.bothE().count()).profile().next();
-        for (Metrics i : m.getMetrics(1).getNested()) {
-            assertThat(i.getDuration(TimeUnit.NANOSECONDS), greaterThan(0L));
+        m = g.withComputer().V().group<Any, Any>().by().by(__.bothE().count()).profile().next()
+        for (i in m.getMetrics(1).getNested()) {
+            MatcherAssert.assertThat(i.getDuration(TimeUnit.NANOSECONDS), Matchers.greaterThan(0L))
         }
     }
 
@@ -667,346 +662,354 @@ public class TinkerCatTest {
      * Just validating that property folding works nicely given TINKERPOP-2112
      */
     @Test
-    public void shouldFoldPropertyStepForTokens() {
-        final GraphTraversalSource g = TinkerCat.open().traversal();
-
-        g.addV("person").property(VertexProperty.Cardinality.single, "k", "v").
-                property(T.id , "id").
-                property(VertexProperty.Cardinality.list, "l", 1).
-                property("x", "y").
-                property(VertexProperty.Cardinality.list, "l", 2).
-                property("m", "m", "mm", "mm").
-                property("y", "z").iterate();
-
-        assertThat(g.V("id").hasNext(), is(true));
+    fun shouldFoldPropertyStepForTokens() {
+        val g: GraphTraversalSource = TinkerCat.open().traversal()
+        g.addV("person").property(VertexProperty.Cardinality.single, "k", "v").property(T.id, "id")
+            .property(VertexProperty.Cardinality.list, "l", 1).property("x", "y")
+            .property(VertexProperty.Cardinality.list, "l", 2).property("m", "m", "mm", "mm").property("y", "z")
+            .iterate()
+        MatcherAssert.assertThat(g.V("id").hasNext(), Matchers.`is`(true))
     }
 
     @Test
-    public void shouldOptionalUsingWithComputer() {
+    fun shouldOptionalUsingWithComputer() {
         // not all systems will have 3+ available processors (e.g. travis)
-        assumeThat(Runtime.getRuntime().availableProcessors(), greaterThan(2));
+        Assume.assumeThat<Int>(Runtime.getRuntime().availableProcessors(), Matchers.greaterThan(2))
 
         // didn't add this as a general test as it basically was only failing under a specific condition for
         // TinkerCatComputer - see more here: https://issues.apache.org/jira/browse/TINKERPOP-1619
-        final GraphTraversalSource g = TinkerFactory.createModern().traversal();
-
-        final List<Edge> expected = g.E(7, 7, 8, 9).order().by(T.id).toList();
-        assertEquals(expected, g.withComputer(Computer.compute().workers(3)).V(1, 2).optional(__.bothE().dedup()).order().by(T.id).toList());
-        assertEquals(expected, g.withComputer(Computer.compute().workers(4)).V(1, 2).optional(__.bothE().dedup()).order().by(T.id).toList());
+        val g: GraphTraversalSource = TinkerFactory.createModern().traversal()
+        val expected: List<Edge> = g.E(7, 7, 8, 9).order().by(T.id).toList()
+        Assert.assertEquals(
+            expected,
+            g.withComputer(Computer.compute().workers(3)).V(1, 2).optional<Edge>(__.bothE().dedup()).order().by(T.id)
+                .toList()
+        )
+        Assert.assertEquals(
+            expected,
+            g.withComputer(Computer.compute().workers(4)).V(1, 2).optional<Edge>(__.bothE().dedup()).order().by(T.id)
+                .toList()
+        )
     }
 
     @Test
-    public void shouldReservedKeyVerify() {
-        final Set<String> reserved = new HashSet<>(Arrays.asList("something", "id", "label"));
-        final GraphTraversalSource g = TinkerCat.open().traversal().withStrategies(
-                ReservedKeysVerificationStrategy.build().reservedKeys(reserved).throwException().create());
-
-        g.addV("person").property(T.id, 123).iterate();
-
+    fun shouldReservedKeyVerify() {
+        val reserved: Set<String> = HashSet<String>(Arrays.asList<String>("something", "id", "label"))
+        val g: GraphTraversalSource = TinkerCat.open().traversal().withStrategies(
+            ReservedKeysVerificationStrategy.build().reservedKeys(reserved).throwException().create()
+        )
+        g.addV("person").property(T.id, 123).iterate()
         try {
-            g.addV("person").property("id", 123).iterate();
-            fail("Verification exception expected");
-        } catch (IllegalStateException ve) {
-            assertThat(ve.getMessage(), containsString("that is setting a property key to a reserved word"));
+            g.addV("person").property("id", 123).iterate()
+            Assert.fail("Verification exception expected")
+        } catch (ve: IllegalStateException) {
+            MatcherAssert.assertThat(
+                ve.message,
+                StringContains.containsString("that is setting a property key to a reserved word")
+            )
         }
-
         try {
-            g.addV("person").property("something", 123).iterate();
-            fail("Verification exception expected");
-        } catch (IllegalStateException ve) {
-            assertThat(ve.getMessage(), containsString("that is setting a property key to a reserved word"));
-        }
-    }
-
-    @Test
-    public void shouldProvideClearErrorWhenTryingToMutateT() {
-        final GraphTraversalSource g = TinkerCat.open().traversal();
-        g.addV("person").property(T.id, 100).iterate();
-
-        try {
-            g.V(100).property(T.label, "software").iterate();
-            fail("Should have thrown an error");
-        } catch (IllegalStateException ise) {
-            assertEquals("T.label is immutable on existing elements", ise.getMessage());
-        }
-
-        try {
-            g.V(100).property(T.id, 101).iterate();
-            fail("Should have thrown an error");
-        } catch (IllegalStateException ise) {
-            assertEquals("T.id is immutable on existing elements", ise.getMessage());
-        }
-
-        try {
-            g.V(100).property("name", "marko").property(T.label, "software").iterate();
-            fail("Should have thrown an error");
-        } catch (IllegalStateException ise) {
-            assertEquals("T.label is immutable on existing elements", ise.getMessage());
-        }
-
-        try {
-            g.V(100).property(T.id, 101).property("name", "marko").iterate();
-            fail("Should have thrown an error");
-        } catch (IllegalStateException ise) {
-            assertEquals("T.id is immutable on existing elements", ise.getMessage());
+            g.addV("person").property("something", 123).iterate()
+            Assert.fail("Verification exception expected")
+        } catch (ve: IllegalStateException) {
+            MatcherAssert.assertThat(
+                ve.message,
+                StringContains.containsString("that is setting a property key to a reserved word")
+            )
         }
     }
 
     @Test
-    public void shouldProvideClearErrorWhenTryingToMutateEdgeWithCardinality() {
-        final GraphTraversalSource g = TinkerFactory.createModern().traversal();
-
+    fun shouldProvideClearErrorWhenTryingToMutateT() {
+        val g: GraphTraversalSource = TinkerCat.open().traversal()
+        g.addV("person").property(T.id, 100).iterate()
         try {
-            g.E().property(VertexProperty.Cardinality.single, "k", 100).iterate();
-            fail("Should have thrown an error");
-        } catch (IllegalStateException ise) {
-            assertEquals("Property cardinality can only be set for a Vertex but the traversal encountered TinkerEdge for key: k", ise.getMessage());
+            g.V(100).property(T.label, "software").iterate()
+            Assert.fail("Should have thrown an error")
+        } catch (ise: IllegalStateException) {
+            Assert.assertEquals("T.label is immutable on existing elements", ise.message)
         }
-
         try {
-            g.E().property(VertexProperty.Cardinality.list, "k", 100).iterate();
-            fail("Should have thrown an error");
-        } catch (IllegalStateException ise) {
-            assertEquals("Property cardinality can only be set for a Vertex but the traversal encountered TinkerEdge for key: k", ise.getMessage());
+            g.V(100).property(T.id, 101).iterate()
+            Assert.fail("Should have thrown an error")
+        } catch (ise: IllegalStateException) {
+            Assert.assertEquals("T.id is immutable on existing elements", ise.message)
         }
-
         try {
-            g.addE("link").to(__.V(1)).from(__.V(1)).
-                    property(VertexProperty.Cardinality.list, "k", 100).iterate();
-            fail("Should have thrown an error");
-        } catch (IllegalStateException ise) {
-            assertEquals("Multi-property cardinality of [list] can only be set for a Vertex but is being used for addE() with key: k", ise.getMessage());
+            g.V(100).property("name", "marko").property(T.label, "software").iterate()
+            Assert.fail("Should have thrown an error")
+        } catch (ise: IllegalStateException) {
+            Assert.assertEquals("T.label is immutable on existing elements", ise.message)
         }
-    }
-
-    @Test
-    public void shouldProvideClearErrorWhenPuttingFromToInWrongSpot() {
-        final GraphTraversalSource g = TinkerFactory.createModern().traversal();
-
         try {
-            g.addE("link").property(VertexProperty.Cardinality.single, "k", 100).out().
-                    to(__.V(1)).from(__.V(1)).iterate();
-            fail("Should have thrown an error");
-        } catch (IllegalArgumentException ise) {
-            assertEquals("The to() step cannot follow VertexStep", ise.getMessage());
-        }
-
-        try {
-            g.addE("link").property("k", 100).out().
-                    from(__.V(1)).to(__.V(1)).iterate();
-            fail("Should have thrown an error");
-        } catch (IllegalArgumentException ise) {
-            assertEquals("The from() step cannot follow VertexStep", ise.getMessage());
+            g.V(100).property(T.id, 101).property("name", "marko").iterate()
+            Assert.fail("Should have thrown an error")
+        } catch (ise: IllegalStateException) {
+            Assert.assertEquals("T.id is immutable on existing elements", ise.message)
         }
     }
 
     @Test
-    public void shouldProvideClearErrorWhenFromOrToDoesNotResolveToVertex() {
-        final GraphTraversalSource g = TinkerFactory.createModern().traversal();
-
+    fun shouldProvideClearErrorWhenTryingToMutateEdgeWithCardinality() {
+        val g: GraphTraversalSource = TinkerFactory.createModern().traversal()
         try {
-            g.addE("link").property(VertexProperty.Cardinality.single, "k", 100).to(__.V(1)).iterate();
-            fail("Should have thrown an error");
-        } catch (IllegalStateException ise) {
-            assertEquals("addE(link) could not find a Vertex for from() - encountered: null", ise.getMessage());
+            g.E().property(VertexProperty.Cardinality.single, "k", 100).iterate()
+            Assert.fail("Should have thrown an error")
+        } catch (ise: IllegalStateException) {
+            Assert.assertEquals(
+                "Property cardinality can only be set for a Vertex but the traversal encountered TinkerEdge for key: k",
+                ise.message
+            )
         }
-
         try {
-            g.addE("link").property(VertexProperty.Cardinality.single, "k", 100).from(__.V(1)).iterate();
-            fail("Should have thrown an error");
-        } catch (IllegalStateException ise) {
-            assertEquals("addE(link) could not find a Vertex for to() - encountered: null", ise.getMessage());
+            g.E().property(VertexProperty.Cardinality.list, "k", 100).iterate()
+            Assert.fail("Should have thrown an error")
+        } catch (ise: IllegalStateException) {
+            Assert.assertEquals(
+                "Property cardinality can only be set for a Vertex but the traversal encountered TinkerEdge for key: k",
+                ise.message
+            )
         }
-
         try {
-            g.addE("link").property("k", 100).from(__.V(1)).iterate();
-            fail("Should have thrown an error");
-        } catch (IllegalStateException ise) {
-            assertEquals("addE(link) could not find a Vertex for to() - encountered: null", ise.getMessage());
-        }
-
-        try {
-            g.V(1).values("name").as("a").addE("link").property(VertexProperty.Cardinality.single, "k", 100).from("a").iterate();
-            fail("Should have thrown an error");
-        } catch (IllegalStateException ise) {
-            assertEquals("addE(link) could not find a Vertex for to() - encountered: String", ise.getMessage());
-        }
-
-        try {
-            g.V(1).values("name").as("a").addE("link").property(VertexProperty.Cardinality.single, "k", 100).to("a").iterate();
-            fail("Should have thrown an error");
-        } catch (IllegalStateException ise) {
-            assertEquals("addE(link) could not find a Vertex for to() - encountered: String", ise.getMessage());
-        }
-
-        try {
-            g.V(1).as("v").values("name").as("a").addE("link").property(VertexProperty.Cardinality.single, "k", 100).to("v").from("a").iterate();
-            fail("Should have thrown an error");
-        } catch (IllegalStateException ise) {
-            assertEquals("addE(link) could not find a Vertex for from() - encountered: String", ise.getMessage());
+            g.addE("link").to(__.V<Any>(1)).from(__.V<Any>(1)).property(VertexProperty.Cardinality.list, "k", 100)
+                .iterate()
+            Assert.fail("Should have thrown an error")
+        } catch (ise: IllegalStateException) {
+            Assert.assertEquals(
+                "Multi-property cardinality of [list] can only be set for a Vertex but is being used for addE() with key: k",
+                ise.message
+            )
         }
     }
 
     @Test
-    public void shouldWorkWithoutIdentityStrategy() {
-        final Graph graph = TinkerFactory.createModern();
-        final GraphTraversalSource g = traversal().withEmbedded(graph).withoutStrategies(IdentityRemovalStrategy.class);
-        final List<Map<String,Object>> result = g.V().match(__.as("a").out("knows").values("name").as("b")).identity().toList();
-        assertEquals(2, result.size());
-        result.stream().forEach(m -> {
-            assertEquals(2, m.size());
-            assertThat(m.containsKey("a"), is(true));
-            assertThat(m.containsKey("b"), is(true));
-        });
+    fun shouldProvideClearErrorWhenPuttingFromToInWrongSpot() {
+        val g: GraphTraversalSource = TinkerFactory.createModern().traversal()
+        try {
+            g.addE("link").property(VertexProperty.Cardinality.single, "k", 100).out().to(__.V<Any>(1))
+                .from(__.V<Any>(1)).iterate()
+            Assert.fail("Should have thrown an error")
+        } catch (ise: IllegalArgumentException) {
+            Assert.assertEquals("The to() step cannot follow VertexStep", ise.message)
+        }
+        try {
+            g.addE("link").property("k", 100).out().from(__.V<Any>(1)).to(__.V<Any>(1)).iterate()
+            Assert.fail("Should have thrown an error")
+        } catch (ise: IllegalArgumentException) {
+            Assert.assertEquals("The from() step cannot follow VertexStep", ise.message)
+        }
     }
 
     @Test
-    public void shouldApplyStrategiesRecursivelyWithGraph() {
-        final Graph graph = TinkerCat.open();
-        final GraphTraversalSource g = traversal().withEmbedded(graph).withStrategies(new TraversalStrategy.ProviderOptimizationStrategy() {
-            @Override
-            public void apply(final Traversal.Admin<?, ?> traversal) {
-                final Graph graph = traversal.getGraph().get();
-                graph.addVertex("person");
-            }
-        });
+    fun shouldProvideClearErrorWhenFromOrToDoesNotResolveToVertex() {
+        val g: GraphTraversalSource = TinkerFactory.createModern().traversal()
+        try {
+            g.addE("link").property(VertexProperty.Cardinality.single, "k", 100).to(__.V<Any>(1)).iterate()
+            Assert.fail("Should have thrown an error")
+        } catch (ise: IllegalStateException) {
+            Assert.assertEquals("addE(link) could not find a Vertex for from() - encountered: null", ise.message)
+        }
+        try {
+            g.addE("link").property(VertexProperty.Cardinality.single, "k", 100).from(__.V<Any>(1)).iterate()
+            Assert.fail("Should have thrown an error")
+        } catch (ise: IllegalStateException) {
+            Assert.assertEquals("addE(link) could not find a Vertex for to() - encountered: null", ise.message)
+        }
+        try {
+            g.addE("link").property("k", 100).from(__.V<Any>(1)).iterate()
+            Assert.fail("Should have thrown an error")
+        } catch (ise: IllegalStateException) {
+            Assert.assertEquals("addE(link) could not find a Vertex for to() - encountered: null", ise.message)
+        }
+        try {
+            g.V(1).values<Any>("name").`as`("a").addE("link").property(VertexProperty.Cardinality.single, "k", 100)
+                .from("a").iterate()
+            Assert.fail("Should have thrown an error")
+        } catch (ise: IllegalStateException) {
+            Assert.assertEquals("addE(link) could not find a Vertex for to() - encountered: String", ise.message)
+        }
+        try {
+            g.V(1).values<Any>("name").`as`("a").addE("link").property(VertexProperty.Cardinality.single, "k", 100)
+                .to("a").iterate()
+            Assert.fail("Should have thrown an error")
+        } catch (ise: IllegalStateException) {
+            Assert.assertEquals("addE(link) could not find a Vertex for to() - encountered: String", ise.message)
+        }
+        try {
+            g.V(1).`as`("v").values<Any>("name").`as`("a").addE("link")
+                .property(VertexProperty.Cardinality.single, "k", 100).to("v").from("a").iterate()
+            Assert.fail("Should have thrown an error")
+        } catch (ise: IllegalStateException) {
+            Assert.assertEquals("addE(link) could not find a Vertex for from() - encountered: String", ise.message)
+        }
+    }
+
+    @Test
+    fun shouldWorkWithoutIdentityStrategy() {
+        val graph: Graph = TinkerFactory.createModern()
+        val g: GraphTraversalSource = AnonymousTraversalSource.traversal().withEmbedded(graph).withoutStrategies(
+            IdentityRemovalStrategy::class.java
+        )
+        val result: List<Map<String, Any>> =
+            g.V().match<Any>(__.`as`<Any>("a").out("knows").values<Any>("name").`as`("b")).identity().toList()
+        Assert.assertEquals(2, result.size.toLong())
+        result.stream().forEach { m: Map<String, Any> ->
+            Assert.assertEquals(2, m.size.toLong())
+            MatcherAssert.assertThat(m.containsKey("a"), Matchers.`is`(true))
+            MatcherAssert.assertThat(m.containsKey("b"), Matchers.`is`(true))
+        }
+    }
+
+    @Test
+    fun shouldApplyStrategiesRecursivelyWithGraph() {
+        val graph: Graph = TinkerCat.open()
+        val g: GraphTraversalSource = AnonymousTraversalSource.traversal().withEmbedded(graph)
+            .withStrategies(object : ProviderOptimizationStrategy {
+                override fun apply(traversal: Traversal.Admin<*, *>) {
+                    val graph = traversal.graph.get()
+                    graph.addVertex("person")
+                }
+            })
 
         // adds one person by way of the strategy
-        g.inject(0).iterate();
-        assertEquals(1, traversal().withEmbedded(graph).V().hasLabel("person").count().next().intValue());
+        g.inject<Int>(0).iterate()
+        Assert.assertEquals(
+            1,
+            AnonymousTraversalSource.traversal().withEmbedded(graph).V().hasLabel("person").count().next().toInt()
+                .toLong()
+        )
 
         // adds two persons by way of the strategy one for the parent and one for the child
-        g.inject(0).sideEffect(__.addV()).iterate();
-        assertEquals(3, traversal().withEmbedded(graph).V().hasLabel("person").count().next().intValue());
+        g.inject<Int>(0).sideEffect(__.addV<Any>()).iterate()
+        Assert.assertEquals(
+            3,
+            AnonymousTraversalSource.traversal().withEmbedded(graph).V().hasLabel("person").count().next().toInt()
+                .toLong()
+        )
     }
 
     @Test
-    public void shouldAllowHeterogeneousIdsWithAnyManager() {
-        final Configuration anyManagerConfig = new BaseConfiguration();
-        anyManagerConfig.addProperty(TinkerCat.GREMLIN_TINKERGRAPH_EDGE_ID_MANAGER, TinkerCat.DefaultIdManager.ANY.name());
-        anyManagerConfig.addProperty(TinkerCat.GREMLIN_TINKERGRAPH_VERTEX_ID_MANAGER, TinkerCat.DefaultIdManager.ANY.name());
-        anyManagerConfig.addProperty(TinkerCat.GREMLIN_TINKERGRAPH_VERTEX_PROPERTY_ID_MANAGER, TinkerCat.DefaultIdManager.ANY.name());
-        final Graph graph = TinkerCat.open(anyManagerConfig);
-        final GraphTraversalSource g = traversal().withEmbedded(graph);
-
-        final UUID uuid = UUID.fromString("0E939658-ADD2-4598-A722-2FC178E9B741");
-        g.addV("person").property(T.id, 100).
-                addV("person").property(T.id, "1000").
-                addV("person").property(T.id, "1001").
-                addV("person").property(T.id, uuid).iterate();
-
-        assertEquals(3, g.V(100, "1000", uuid).count().next().intValue());
+    fun shouldAllowHeterogeneousIdsWithAnyManager() {
+        val anyManagerConfig: Configuration = BaseConfiguration()
+        anyManagerConfig.addProperty(TinkerCat.GREMLIN_TINKERGRAPH_EDGE_ID_MANAGER, TinkerCat.DefaultIdManager.ANY.name)
+        anyManagerConfig.addProperty(
+            TinkerCat.GREMLIN_TINKERGRAPH_VERTEX_ID_MANAGER,
+            TinkerCat.DefaultIdManager.ANY.name
+        )
+        anyManagerConfig.addProperty(
+            TinkerCat.GREMLIN_TINKERGRAPH_VERTEX_PROPERTY_ID_MANAGER,
+            TinkerCat.DefaultIdManager.ANY.name
+        )
+        val graph: Graph = TinkerCat.open(anyManagerConfig)
+        val g: GraphTraversalSource = AnonymousTraversalSource.traversal().withEmbedded(graph)
+        val uuid = UUID.fromString("0E939658-ADD2-4598-A722-2FC178E9B741")
+        g.addV("person").property(T.id, 100).addV("person").property(T.id, "1000").addV("person").property(T.id, "1001")
+            .addV("person").property(T.id, uuid).iterate()
+        Assert.assertEquals(3, g.V(100, "1000", uuid).count().next().toInt().toLong())
     }
 
     /**
-     * Coerces a {@code Color} to a {@link TinkerCat} during serialization.  Demonstrates how custom serializers
+     * Coerces a `Color` to a [TinkerCat] during serialization.  Demonstrates how custom serializers
      * can be developed that can coerce one value to another during serialization.
      */
-    public final static class ColorToTinkerCatSerializer extends Serializer<Color> {
-        public ColorToTinkerCatSerializer() {
-        }
-
-        @Override
-        public void write(final Kryo kryo, final Output output, final Color color) {
-            final TinkerCat graph = TinkerCat.open();
-            final Vertex v = graph.addVertex(T.id, 1, T.label, "color", "name", color.toString());
-            final Vertex vRed = graph.addVertex(T.id, 2, T.label, "primary", "name", "red");
-            final Vertex vGreen = graph.addVertex(T.id, 3, T.label, "primary", "name", "green");
-            final Vertex vBlue = graph.addVertex(T.id, 4, T.label, "primary", "name", "blue");
-
-            v.addEdge("hasComponent", vRed, "amount", color.getRed());
-            v.addEdge("hasComponent", vGreen, "amount", color.getGreen());
-            v.addEdge("hasComponent", vBlue, "amount", color.getBlue());
+    class ColorToTinkerCatSerializer : Serializer<Color?>() {
+        fun write(kryo: Kryo?, output: Output, color: Color) {
+            val graph = TinkerCat.open()
+            val v = graph.addVertex(T.id, 1, T.label, "color", "name", color.toString())
+            val vRed = graph.addVertex(T.id, 2, T.label, "primary", "name", "red")
+            val vGreen = graph.addVertex(T.id, 3, T.label, "primary", "name", "green")
+            val vBlue = graph.addVertex(T.id, 4, T.label, "primary", "name", "blue")
+            v.addEdge("hasComponent", vRed, "amount", color.red)
+            v.addEdge("hasComponent", vGreen, "amount", color.green)
+            v.addEdge("hasComponent", vBlue, "amount", color.blue)
 
             // make some junk so the graph is kinda big
-            generate(graph);
-
-            try (final ByteArrayOutputStream stream = new ByteArrayOutputStream()) {
-                GryoWriter.build().mapper(() -> kryo).create().writeGraph(stream, graph);
-                final byte[] bytes = stream.toByteArray();
-                output.writeInt(bytes.length);
-                output.write(bytes);
-            } catch (Exception ex) {
-                ex.printStackTrace();
+            generate(graph)
+            try {
+                ByteArrayOutputStream().use { stream ->
+                    GryoWriter.build().mapper(Mapper<Kryo?> { kryo }).create().writeGraph(stream, graph)
+                    val bytes = stream.toByteArray()
+                    output.writeInt(bytes.size)
+                    output.write(bytes)
+                }
+            } catch (ex: Exception) {
+                ex.printStackTrace()
             }
         }
 
-        @Override
-        public Color read(final Kryo kryo, final Input input, final Class<Color> colorClass) {
-            throw new UnsupportedOperationException("IoX writes to DetachedVertex and can't be read back in as IoX");
+        fun read(kryo: Kryo?, input: Input?, colorClass: Class<Color?>?): Color {
+            throw UnsupportedOperationException("IoX writes to DetachedVertex and can't be read back in as IoX")
         }
 
-        private static void generate(final Graph graph) {
-            final int size = 100;
-            final List<Object> ids = new ArrayList<>();
-            final Vertex v = graph.addVertex("sin", 0.0f, "cos", 1.0f, "ii", 0f);
-            ids.add(v.id());
-
-            final GraphTraversalSource g = graph.traversal();
-
-            final Random rand = new Random();
-            for (int ii = 1; ii < size; ii++) {
-                final Vertex t = graph.addVertex("ii", ii, "sin", Math.sin(ii / 5.0f), "cos", Math.cos(ii / 5.0f));
-                final Vertex u = g.V(ids.get(rand.nextInt(ids.size()))).next();
-                t.addEdge("linked", u);
-                ids.add(u.id());
-                ids.add(v.id());
+        companion object {
+            private fun generate(graph: Graph) {
+                val size = 100
+                val ids: MutableList<Any> = ArrayList()
+                val v = graph.addVertex("sin", 0.0f, "cos", 1.0f, "ii", 0f)
+                ids.add(v.id())
+                val g: GraphTraversalSource = graph.traversal()
+                val rand = Random()
+                for (ii in 1 until size) {
+                    val t = graph.addVertex(
+                        "ii",
+                        ii,
+                        "sin",
+                        Math.sin((ii / 5.0f).toDouble()),
+                        "cos",
+                        Math.cos((ii / 5.0f).toDouble())
+                    )
+                    val u: Vertex = g.V(ids[rand.nextInt(ids.size)]).next()
+                    t.addEdge("linked", u)
+                    ids.add(u.id())
+                    ids.add(v.id())
+                }
             }
         }
     }
 
-    public static class CustomClassResolverSupplier implements Supplier<ClassResolver> {
-        @Override
-        public ClassResolver get() {
-            return new CustomClassResolver();
+    class CustomClassResolverSupplier : Supplier<ClassResolver> {
+        override fun get(): ClassResolver {
+            return CustomClassResolver()
         }
     }
 
-    public static class CustomClassResolver extends GryoClassResolverV1d0 {
-        private ColorToTinkerCatSerializer colorToGraphSerializer = new ColorToTinkerCatSerializer();
-
-        public Registration getRegistration(final Class clazz) {
-            if (Color.class.isAssignableFrom(clazz)) {
-                final Registration registration = super.getRegistration(TinkerCat.class);
-                return new Registration(registration.getType(), colorToGraphSerializer, registration.getId());
+    class CustomClassResolver : GryoClassResolverV1d0() {
+        private val colorToGraphSerializer = ColorToTinkerCatSerializer()
+        override fun getRegistration(clazz: Class<*>?): Registration {
+            return if (Color::class.java.isAssignableFrom(clazz)) {
+                val registration: Registration = super.getRegistration(TinkerCat::class.java)
+                Registration(registration.getType(), colorToGraphSerializer, registration.getId())
             } else {
-                return super.getRegistration(clazz);
+                super.getRegistration(clazz)
             }
         }
     }
 
-    public static class TestIoBuilder implements Io.Builder {
-
-        static int calledGraph, calledCreate, calledOnMapper;
-
-        public TestIoBuilder(){
-            //Looks awkward to reset static vars inside a constructor, but makes sense from testing perspective
-            calledGraph = 0;
-            calledCreate = 0;
-            calledOnMapper = 0;
+    class TestIoBuilder     //Looks awkward to reset static vars inside a constructor, but makes sense from testing perspective
+        : Io.Builder<Any?> {
+        override fun onMapper(onMapper: Consumer<*>?): Io.Builder<out Io<*, *, *>> {
+            calledOnMapper++
+            return this
         }
 
-        @Override
-        public Io.Builder<? extends Io> onMapper(final Consumer onMapper) {
-            calledOnMapper++;
-            return this;
+        override fun graph(graph: Graph): Io.Builder<out Io<*, *, *>> {
+            calledGraph++
+            return this
         }
 
-        @Override
-        public Io.Builder<? extends Io> graph(final Graph graph) {
-            calledGraph++;
-            return this;
+        override fun create(): Io<*, *, *> {
+            calledCreate++
+            return Mockito.mock<Io<*, *, *>>(Io::class.java)
         }
 
-        @Override
-        public Io create() {
-            calledCreate++;
-            return mock(Io.class);
+        override fun requiresVersion(version: Any): Boolean {
+            return false
         }
 
-        @Override
-        public boolean requiresVersion(final Object version) {
-            return false;
+        companion object {
+            var calledGraph = 0
+            var calledCreate = 0
+            var calledOnMapper = 0
         }
     }
 }

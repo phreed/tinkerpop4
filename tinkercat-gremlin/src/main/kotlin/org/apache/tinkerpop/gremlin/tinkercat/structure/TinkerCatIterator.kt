@@ -16,13 +16,11 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.tinkerpop.gremlin.tinkercat.structure;
+package org.apache.tinkerpop.gremlin.tinkercat.structure
 
-import org.apache.tinkerpop.gremlin.structure.util.CloseableIterator;
-import org.apache.tinkerpop.gremlin.util.iterator.StoreIteratorCounter;
-
-import java.util.Iterator;
-import java.util.NoSuchElementException;
+import org.apache.tinkerpop.gremlin.structure.util.CloseableIterator
+import org.apache.tinkerpop.gremlin.util.iterator.StoreIteratorCounter
+import java.util.NoSuchElementException
 
 /**
  * Wrapper on top of Iterator representing a closable resource to the underlying storage.
@@ -32,63 +30,57 @@ import java.util.NoSuchElementException;
  * gremlin-test suite can be used to detect cases when the query processor does not gracefully
  * release the underlying resources.
  */
-public class TinkerCatIterator<E> implements CloseableIterator<E> {
+class TinkerCatIterator<E>(
     /**
      * Original iterator which is wrapped by this class
      */
-    private Iterator<E> orig;
-    private E next;
+    private val orig: Iterator<E>
+) : CloseableIterator<E> {
+    private var next: E? = null
+
     /**
      * Represents if the iterator has been fully consumed
      */
-    private boolean finished;
+    private var finished: Boolean
 
-    public TinkerCatIterator(final Iterator<E> orig) {
-        this.orig = orig;
-        StoreIteratorCounter.INSTANCE.increment();
-        finished = false;
+    init {
+        StoreIteratorCounter.INSTANCE.increment()
+        finished = false
     }
 
-    @Override
-    public boolean hasNext() {
-        if (next != null) return true;
-        if (finished) return false;
-
-        return tryComputeNext();
+    override fun hasNext(): Boolean {
+        if (next != null) return true
+        return if (finished) false else tryComputeNext()
     }
 
-    @Override
-    public E next() {
+    override fun next(): E {
         if (!hasNext()) {
-            throw new NoSuchElementException();
+            throw NoSuchElementException()
         }
-
-        final E ret = next;
+        val ret = next
 
         // pre-fetch the next value. It is important to do this
         // so that the underlying resource can be closed after reading the
         // last value of the iterator.
-        tryComputeNext();
-
-        return ret;
+        tryComputeNext()
+        return ret
     }
 
-    private boolean tryComputeNext() {
-        try {
-            next = orig.next();
-            return true;
-        } catch (NoSuchElementException ex) {
-            close();
-            next = null;
-            return false;
+    private fun tryComputeNext(): Boolean {
+        return try {
+            next = orig.next()
+            true
+        } catch (ex: NoSuchElementException) {
+            close()
+            next = null
+            false
         }
     }
 
-    @Override
-    public void close() {
+    override fun close() {
         if (!finished) {
-            StoreIteratorCounter.INSTANCE.decrement();
+            StoreIteratorCounter.INSTANCE.decrement()
         }
-        finished = true;
+        finished = true
     }
 }

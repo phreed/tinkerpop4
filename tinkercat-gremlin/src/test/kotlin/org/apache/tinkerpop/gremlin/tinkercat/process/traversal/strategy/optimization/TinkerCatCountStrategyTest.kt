@@ -16,87 +16,138 @@
  *  specific language governing permissions and limitations
  *  under the License.
  */
+package org.apache.tinkerpop.gremlin.tinkercat.process.traversal.strategy.optimization
 
-package org.apache.tinkerpop.gremlin.tinkercat.process.traversal.strategy.optimization;
-
-import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
-import org.apache.tinkerpop.gremlin.process.traversal.TraversalStrategies;
-import org.apache.tinkerpop.gremlin.process.traversal.TraversalStrategy;
-import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.DefaultGraphTraversal;
-import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__;
-import org.apache.tinkerpop.gremlin.process.traversal.util.DefaultTraversalStrategies;
-import org.apache.tinkerpop.gremlin.process.traversal.util.EmptyTraversal;
-import org.apache.tinkerpop.gremlin.structure.Element;
-import org.apache.tinkerpop.gremlin.structure.Vertex;
-import org.apache.tinkerpop.gremlin.tinkercat.process.traversal.step.map.TinkerCountGlobalStep;
-import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-
-import static org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__.out;
-import static org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__.select;
-import static org.junit.Assert.assertEquals;
+import org.apache.tinkerpop.gremlin.process.traversal.Traversal
+import org.apache.tinkerpop.gremlin.tinkercat.process.traversal.strategy.optimization.TinkerCatCountStrategy.Companion.instance
+import org.junit.runner.RunWith
+import org.apache.tinkerpop.gremlin.process.traversal.TraversalStrategy
+import org.apache.tinkerpop.gremlin.process.traversal.TraversalStrategies
+import org.apache.tinkerpop.gremlin.process.traversal.Traverser
+import org.apache.tinkerpop.gremlin.process.traversal.util.DefaultTraversalStrategies
+import org.apache.tinkerpop.gremlin.tinkercat.process.traversal.strategy.optimization.TinkerCatCountStrategy
+import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.DefaultGraphTraversal
+import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__
+import org.apache.tinkerpop.gremlin.process.traversal.util.EmptyTraversal
+import org.apache.tinkerpop.gremlin.structure.Element
+import org.apache.tinkerpop.gremlin.structure.Vertex
+import org.apache.tinkerpop.gremlin.tinkercat.process.traversal.step.map.TinkerCountGlobalStep
+import java.util.Arrays
+import org.apache.tinkerpop.gremlin.tinkercat.process.traversal.strategy.optimization.TinkerCatCountStrategyTest
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat
+import org.junit.Assert
+import org.junit.Test
+import org.junit.runners.Parameterized
 
 /**
  * @author Marko A. Rodriguez (http://markorodriguez.com)
  */
-@RunWith(Parameterized.class)
-public class TinkerCatCountStrategyTest {
-
+@RunWith(Parameterized::class)
+class TinkerCatCountStrategyTest {
     @Parameterized.Parameter(value = 0)
-    public Traversal original;
+    var original: Traversal<*, *>? = null
 
     @Parameterized.Parameter(value = 1)
-    public Traversal optimized;
+    var optimized: Traversal<*, *>? = null
 
     @Parameterized.Parameter(value = 2)
-    public Collection<TraversalStrategy> otherStrategies;
-
+    var otherStrategies: Collection<TraversalStrategy<*>>? = null
     @Test
-    public void doTest() {
-        final TraversalStrategies strategies = new DefaultTraversalStrategies();
-        strategies.addStrategies(TinkerCatCountStrategy.instance());
-        for (final TraversalStrategy strategy : this.otherStrategies) {
-            strategies.addStrategies(strategy);
+    fun doTest() {
+        val strategies: TraversalStrategies = DefaultTraversalStrategies()
+        strategies.addStrategies(instance())
+        for (strategy in otherStrategies!!) {
+            strategies.addStrategies(strategy)
         }
-        if (this.optimized == null) {
-            this.optimized = this.original.asAdmin().clone();
-            this.optimized.asAdmin().setStrategies(strategies);
-            this.optimized.asAdmin().applyStrategies();
+        if (optimized == null) {
+            optimized = original!!.asAdmin().clone()
+            optimized.asAdmin().strategies = strategies
+            optimized.asAdmin().applyStrategies()
         }
-        this.original.asAdmin().setStrategies(strategies);
-        this.original.asAdmin().applyStrategies();
-        assertEquals(this.optimized, this.original);
+        original!!.asAdmin().strategies = strategies
+        original!!.asAdmin().applyStrategies()
+        Assert.assertEquals(optimized, original)
     }
 
-    private static Traversal.Admin<?, ?> countStep(final Class<? extends Element> elementClass) {
-        return new DefaultGraphTraversal<>().addStep(new TinkerCountGlobalStep(EmptyTraversal.instance(), elementClass));
+    companion object {
+        private fun countStep(elementClass: Class<out Element?>): Traversal.Admin<*, *> {
+            return DefaultGraphTraversal<Any, Any>().addStep<Any>(
+                TinkerCountGlobalStep<Any?>(
+                    EmptyTraversal.instance<Any, Any>(),
+                    elementClass
+                )
+            )
+        }
 
-    }
-
-    @Parameterized.Parameters(name = "{0}")
-    public static Iterable<Object[]> generateTestParameters() {
-        return Arrays.asList(new Object[][]{
-                {__.V().count(), countStep(Vertex.class), Collections.emptyList()},
-                {__.V().count(), countStep(Vertex.class), TraversalStrategies.GlobalCache.getStrategies(TinkerCat.class).toList()},
-                {__.V().as("a").count(), countStep(Vertex.class), TraversalStrategies.GlobalCache.getStrategies(TinkerCat.class).toList()},
-                {__.V().count().as("a"), countStep(Vertex.class), TraversalStrategies.GlobalCache.getStrategies(TinkerCat.class).toList()},
-                {__.V().map(out()).count().as("a"), null, TraversalStrategies.GlobalCache.getStrategies(TinkerCat.class).toList()},
-                {__.V().map(out()).identity().count().as("a"), null, TraversalStrategies.GlobalCache.getStrategies(TinkerCat.class).toList()},
-                {__.V().map(out().groupCount()).identity().count().as("a"), null, TraversalStrategies.GlobalCache.getStrategies(TinkerCat.class).toList()},
-                {__.V().label().map(s -> s.get().length()).count(), null, TraversalStrategies.GlobalCache.getStrategies(TinkerCat.class).toList()},
-                {__.V().as("a").map(select("a")).count(), null, TraversalStrategies.GlobalCache.getStrategies(TinkerCat.class).toList()},
-                //
-                {__.V(), null, Collections.emptyList()},
-                {__.V().out().count(), null, Collections.emptyList()},
-                {__.V(1).count(), null, Collections.emptyList()},
-                {__.count(), null, Collections.emptyList()},
-                {__.V().map(out().groupCount("m")).identity().count().as("a"), null, Collections.emptyList()},
-        });
+        @Parameterized.Parameters(name = "{0}")
+        fun generateTestParameters(): Iterable<Array<Any>> {
+            return Arrays.asList<Array<Any>>(*arrayOf(arrayOf<Any?>(
+                __.V<Any>().count(), countStep(
+                    Vertex::class.java
+                ), emptyList<Any>()
+            ),
+                arrayOf<Any?>(
+                    __.V<Any>().count(), countStep(
+                        Vertex::class.java
+                    ), TraversalStrategies.GlobalCache.getStrategies(
+                        TinkerCat::class.java
+                    ).toList()
+                ),
+                arrayOf<Any?>(
+                    __.V<Any>().`as`("a").count(), countStep(
+                        Vertex::class.java
+                    ), TraversalStrategies.GlobalCache.getStrategies(
+                        TinkerCat::class.java
+                    ).toList()
+                ),
+                arrayOf<Any?>(
+                    __.V<Any>().count().`as`("a"), countStep(
+                        Vertex::class.java
+                    ), TraversalStrategies.GlobalCache.getStrategies(
+                        TinkerCat::class.java
+                    ).toList()
+                ),
+                arrayOf<Any?>(
+                    __.V<Any>().map(__.out()).count().`as`("a"),
+                    null,
+                    TraversalStrategies.GlobalCache.getStrategies(
+                        TinkerCat::class.java
+                    ).toList()
+                ),
+                arrayOf<Any?>(
+                    __.V<Any>().map(__.out()).identity().count().`as`("a"),
+                    null,
+                    TraversalStrategies.GlobalCache.getStrategies(
+                        TinkerCat::class.java
+                    ).toList()
+                ),
+                arrayOf<Any?>(
+                    __.V<Any>().map(__.out().groupCount<Any>()).identity().count().`as`("a"),
+                    null,
+                    TraversalStrategies.GlobalCache.getStrategies(
+                        TinkerCat::class.java
+                    ).toList()
+                ),
+                arrayOf<Any?>(__.V<Any>().label().map { s: Traverser<String> -> s.get().length }
+                    .count(), null, TraversalStrategies.GlobalCache.getStrategies(
+                    TinkerCat::class.java
+                ).toList()),
+                arrayOf<Any?>(
+                    __.V<Any>().`as`("a").map(__.select<Any, Any>("a")).count(),
+                    null,
+                    TraversalStrategies.GlobalCache.getStrategies(
+                        TinkerCat::class.java
+                    ).toList()
+                ),
+                arrayOf<Any?>(__.V<Any>(), null, emptyList<Any>()),
+                arrayOf<Any?>(__.V<Any>().out().count(), null, emptyList<Any>()),
+                arrayOf<Any?>(
+                    __.V<Any>(1).count(), null, emptyList<Any>()
+                ),
+                arrayOf<Any?>(__.count<Any>(), null, emptyList<Any>()),
+                arrayOf<Any?>(
+                    __.V<Any>().map(__.out().groupCount("m")).identity().count().`as`("a"), null, emptyList<Any>()
+                )))
+        }
     }
 }

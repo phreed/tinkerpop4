@@ -16,133 +16,121 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.tinkerpop.gremlin.tinkercat.process.computer;
+package org.apache.tinkerpop.gremlin.tinkercat.process.computer
 
-import org.apache.tinkerpop.gremlin.process.computer.GraphComputer;
-import org.apache.tinkerpop.gremlin.process.computer.MapReduce;
-import org.apache.tinkerpop.gremlin.process.computer.Memory;
-import org.apache.tinkerpop.gremlin.process.computer.MemoryComputeKey;
-import org.apache.tinkerpop.gremlin.process.computer.VertexProgram;
-import org.apache.tinkerpop.gremlin.process.computer.util.MemoryHelper;
-import org.apache.tinkerpop.gremlin.process.traversal.Operator;
-import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
-
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
+import org.apache.tinkerpop.gremlin.process.computer.*
+import org.apache.tinkerpop.gremlin.process.traversal.Operator
+import java.util.concurrent.ConcurrentHashMap
+import kotlin.Throws
+import java.lang.IllegalArgumentException
+import java.util.function.BiFunction
+import org.apache.tinkerpop.gremlin.structure.util.StringFactory
+import java.util.*
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
+import java.util.stream.Collectors
 
 /**
  * @author Marko A. Rodriguez (http://markorodriguez.com)
  */
-public final class TinkerMemory implements Memory.Admin {
+class TinkerMemory(vertexProgram: VertexProgram<*>?, mapReducers: Set<MapReduce<*, *, *, *, *>>) : Memory.Admin {
+    @JvmField
+    val memoryKeys: MutableMap<String, MemoryComputeKey<*>> = HashMap()
+    var previousMap: MutableMap<String, Optional<Any>>
+    var currentMap: MutableMap<String, Optional<Any>>
+    private val iteration = AtomicInteger(0)
+    private val runtime = AtomicLong(0L)
+    private var inExecute = false
 
-    public final Map<String, MemoryComputeKey> memoryKeys = new HashMap<>();
-    public Map<String, Optional<Object>> previousMap;
-    public Map<String, Optional<Object>> currentMap;
-    private final AtomicInteger iteration = new AtomicInteger(0);
-    private final AtomicLong runtime = new AtomicLong(0l);
-    private boolean inExecute = false;
-
-    public TinkerMemory(final VertexProgram<?> vertexProgram, final Set<MapReduce> mapReducers) {
+    init {
         // ConcurrentHashMap makes us use Optional since you cant store null in them as values (or keys)
-        this.currentMap = new ConcurrentHashMap<>();
-        this.previousMap = new ConcurrentHashMap<>();
+        currentMap = ConcurrentHashMap()
+        previousMap = ConcurrentHashMap()
         if (null != vertexProgram) {
-            for (final MemoryComputeKey memoryComputeKey : vertexProgram.getMemoryComputeKeys()) {
-                this.memoryKeys.put(memoryComputeKey.getKey(), memoryComputeKey);
+            for (memoryComputeKey in vertexProgram.memoryComputeKeys) {
+                memoryKeys[memoryComputeKey.key] = memoryComputeKey
             }
         }
-        for (final MapReduce mapReduce : mapReducers) {
-            this.memoryKeys.put(mapReduce.getMemoryKey(), MemoryComputeKey.of(mapReduce.getMemoryKey(), Operator.assign, false, false));
+        for (mapReduce in mapReducers) {
+            memoryKeys[mapReduce.memoryKey] = MemoryComputeKey.of(mapReduce.memoryKey, Operator.assign, false, false)
         }
     }
 
-    @Override
-    public Set<String> keys() {
-        return this.previousMap.keySet().stream().filter(key -> !this.inExecute || this.memoryKeys.get(key).isBroadcast()).collect(Collectors.toSet());
+    override fun keys(): Set<String> {
+        return previousMap.keys.stream().filter { key: String ->
+            !inExecute || memoryKeys[key]!!
+                .isBroadcast
+        }.collect(Collectors.toSet())
     }
 
-    @Override
-    public void incrIteration() {
-        this.iteration.getAndIncrement();
+    override fun incrIteration() {
+        iteration.getAndIncrement()
     }
 
-    @Override
-    public void setIteration(final int iteration) {
-        this.iteration.set(iteration);
+    override fun setIteration(iteration: Int) {
+        this.iteration.set(iteration)
     }
 
-    @Override
-    public int getIteration() {
-        return this.iteration.get();
+    override fun getIteration(): Int {
+        return iteration.get()
     }
 
-    @Override
-    public void setRuntime(final long runTime) {
-        this.runtime.set(runTime);
+    override fun setRuntime(runTime: Long) {
+        runtime.set(runTime)
     }
 
-    @Override
-    public long getRuntime() {
-        return this.runtime.get();
+    override fun getRuntime(): Long {
+        return runtime.get()
     }
 
-    protected void complete() {
-        this.iteration.decrementAndGet();
-        this.previousMap = this.currentMap;
-        this.memoryKeys.values().stream().filter(MemoryComputeKey::isTransient).forEach(computeKey -> this.previousMap.remove(computeKey.getKey()));
+    protected fun complete() {
+        iteration.decrementAndGet()
+        previousMap = currentMap
+        memoryKeys.values.stream().filter { obj: MemoryComputeKey<*> -> obj.isTransient }
+            .forEach { computeKey: MemoryComputeKey<*> -> previousMap.remove(computeKey.key) }
     }
 
-    protected void completeSubRound() {
-        this.previousMap = new ConcurrentHashMap<>(this.currentMap);
-        this.inExecute = !this.inExecute;
+    protected fun completeSubRound() {
+        previousMap = ConcurrentHashMap(currentMap)
+        inExecute = !inExecute
     }
 
-    @Override
-    public boolean isInitialIteration() {
-        return this.getIteration() == 0;
+    override fun isInitialIteration(): Boolean {
+        return getIteration() == 0
     }
 
-    @Override
-    public <R> R get(final String key) throws IllegalArgumentException {
-        if (!this.previousMap.containsKey(key)) throw Memory.Exceptions.memoryDoesNotExist(key);
-
-        final Optional<Object> o = this.previousMap.get(key);
-        final R r = (R) o.orElse(null);
-        if (this.inExecute && !this.memoryKeys.get(key).isBroadcast())
-            throw Memory.Exceptions.memoryDoesNotExist(key);
-        else
-            return r;
+    @Throws(IllegalArgumentException::class)
+    override fun <R> get(key: String): R {
+        if (!previousMap.containsKey(key)) throw Memory.Exceptions.memoryDoesNotExist(key)
+        val o = previousMap[key]!!
+        val r = o.orElse(null) as R
+        return if (inExecute && !memoryKeys[key]!!.isBroadcast) throw Memory.Exceptions.memoryDoesNotExist(
+            key
+        ) else r
     }
 
-    @Override
-    public void set(final String key, final Object value) {
-        checkKeyValue(key, value);
-        if (this.inExecute)
-            throw Memory.Exceptions.memorySetOnlyDuringVertexProgramSetUpAndTerminate(key);
-        this.currentMap.put(key, Optional.ofNullable(value));
+    override fun set(key: String, value: Any) {
+        checkKeyValue(key, value)
+        if (inExecute) throw Memory.Exceptions.memorySetOnlyDuringVertexProgramSetUpAndTerminate(key)
+        currentMap[key] = Optional.ofNullable(value)
     }
 
-    @Override
-    public void add(final String key, final Object value) {
-        checkKeyValue(key, value);
-        if (!this.inExecute)
-            throw Memory.Exceptions.memoryAddOnlyDuringVertexProgramExecute(key);
-        this.currentMap.compute(key, (k, v) -> Optional.ofNullable(null == v || !v.isPresent() ? value : this.memoryKeys.get(key).getReducer().apply(v.get(), value)));
+    override fun add(key: String, value: Any) {
+        checkKeyValue(key, value)
+        if (!inExecute) throw Memory.Exceptions.memoryAddOnlyDuringVertexProgramExecute(key)
+        currentMap.compute(key, BiFunction { k: String?, v: Optional<Any>? ->
+            Optional.ofNullable(
+                if (null == v || !v.isPresent) value else memoryKeys[key]!!
+                    .reducer.apply(v.get(), value)
+            )
+        })
     }
 
-    @Override
-    public String toString() {
-        return StringFactory.memoryString(this);
+    override fun toString(): String {
+        return StringFactory.memoryString(this)
     }
 
-    protected void checkKeyValue(final String key, final Object value) {
-        if (!this.memoryKeys.containsKey(key))
-            throw GraphComputer.Exceptions.providedKeyIsNotAMemoryComputeKey(key);
+    fun checkKeyValue(key: String, value: Any?) {
+        if (!memoryKeys.containsKey(key)) throw GraphComputer.Exceptions.providedKeyIsNotAMemoryComputeKey(key)
     }
 }

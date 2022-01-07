@@ -16,27 +16,26 @@
  *  specific language governing permissions and limitations
  *  under the License.
  */
+package org.apache.tinkerpop.gremlin.tinkercat.structure.io.gryo
 
-package org.apache.tinkerpop.gremlin.tinkercat.structure.io.gryo;
-
-import org.apache.tinkerpop.gremlin.GraphProvider;
-import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
-import org.apache.tinkerpop.gremlin.structure.Graph;
-import org.apache.tinkerpop.gremlin.tinkercat.process.computer.TinkerCatComputer;
+import org.apache.tinkerpop.gremlin.structure.Graph.OptOut
+import org.apache.tinkerpop.gremlin.GraphProvider
+import org.apache.tinkerpop.gremlin.tinkercat.process.computer.TinkerCatComputer
+import org.apache.tinkerpop.gremlin.tinkercat.structure.io.gryo.TinkerCatGryoTranslatorProvider
+import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource
+import org.apache.tinkerpop.gremlin.structure.Graph
 
 /**
  * @author Marko A. Rodriguez (http://markorodriguez.com)
  */
-@Graph.OptOut(
-        test = "org.apache.tinkerpop.gremlin.process.computer.GraphComputerTest",
-        method = "shouldSucceedWithProperTraverserRequirements",
-        reason = "Reason requires investigation")
-@GraphProvider.Descriptor(computer = TinkerCatComputer.class)
-public class TinkerCatGryoTranslatorComputerProvider extends TinkerCatGryoTranslatorProvider {
-
-    @Override
-    public GraphTraversalSource traversal(final Graph graph) {
-        return super.traversal(graph).withComputer();
+@OptOut(
+    test = "org.apache.tinkerpop.gremlin.process.computer.GraphComputerTest",
+    method = "shouldSucceedWithProperTraverserRequirements",
+    reason = "Reason requires investigation"
+)
+@GraphProvider.Descriptor(computer = TinkerCatComputer::class)
+class TinkerCatGryoTranslatorComputerProvider : TinkerCatGryoTranslatorProvider() {
+    override fun traversal(graph: Graph): GraphTraversalSource {
+        return super.traversal(graph).withComputer()
     }
 }
-

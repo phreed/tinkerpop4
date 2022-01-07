@@ -16,94 +16,91 @@
  *  specific language governing permissions and limitations
  *  under the License.
  */
+package org.apache.tinkerpop.gremlin.tinkercat.process.computer
 
-package org.apache.tinkerpop.gremlin.tinkercat.process.computer;
-
-import org.apache.tinkerpop.gremlin.process.computer.Memory;
-import org.apache.tinkerpop.gremlin.process.computer.MemoryComputeKey;
-
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
-import java.util.function.BinaryOperator;
+import org.apache.tinkerpop.gremlin.process.computer.Memory
+import org.apache.tinkerpop.gremlin.tinkercat.process.computer.TinkerMemory.keys
+import org.apache.tinkerpop.gremlin.tinkercat.process.computer.TinkerMemory.incrIteration
+import org.apache.tinkerpop.gremlin.tinkercat.process.computer.TinkerMemory.setIteration
+import org.apache.tinkerpop.gremlin.tinkercat.process.computer.TinkerMemory.getIteration
+import org.apache.tinkerpop.gremlin.tinkercat.process.computer.TinkerMemory.setRuntime
+import org.apache.tinkerpop.gremlin.tinkercat.process.computer.TinkerMemory.getRuntime
+import org.apache.tinkerpop.gremlin.tinkercat.process.computer.TinkerMemory.isInitialIteration
+import org.apache.tinkerpop.gremlin.tinkercat.process.computer.TinkerMemory.get
+import org.apache.tinkerpop.gremlin.tinkercat.process.computer.TinkerMemory.set
+import org.apache.tinkerpop.gremlin.tinkercat.process.computer.TinkerMemory.checkKeyValue
+import org.apache.tinkerpop.gremlin.tinkercat.process.computer.TinkerMemory.toString
+import org.apache.tinkerpop.gremlin.tinkercat.process.computer.TinkerMemory.add
+import java.util.function.BinaryOperator
+import org.apache.tinkerpop.gremlin.process.computer.MemoryComputeKey
+import kotlin.Throws
+import java.lang.IllegalArgumentException
+import java.util.HashMap
 
 /**
  * @author Marko A. Rodriguez (http://markorodriguez.com)
  */
-public final class TinkerWorkerMemory implements Memory.Admin {
+class TinkerWorkerMemory(private val mainMemory: TinkerMemory) : Memory.Admin {
+    private val workerMemory: MutableMap<String, Any> = HashMap()
+    private val reducers: MutableMap<String, BinaryOperator<Any>> = HashMap()
 
-    private final TinkerMemory mainMemory;
-    private final Map<String, Object> workerMemory = new HashMap<>();
-    private final Map<String, BinaryOperator<Object>> reducers = new HashMap<>();
-
-    public TinkerWorkerMemory(final TinkerMemory mainMemory) {
-        this.mainMemory = mainMemory;
-        for (final MemoryComputeKey key : this.mainMemory.memoryKeys.values()) {
-            this.reducers.put(key.getKey(), key.clone().getReducer());
+    init {
+        for (key in mainMemory.memoryKeys.values) {
+            reducers[key.key] = key.clone().getReducer()
         }
     }
 
-    @Override
-    public Set<String> keys() {
-        return this.mainMemory.keys();
+    override fun keys(): Set<String> {
+        return mainMemory.keys()
     }
 
-    @Override
-    public void incrIteration() {
-        this.mainMemory.incrIteration();
+    override fun incrIteration() {
+        mainMemory.incrIteration()
     }
 
-    @Override
-    public void setIteration(final int iteration) {
-        this.mainMemory.setIteration(iteration);
+    override fun setIteration(iteration: Int) {
+        mainMemory.iteration = iteration
     }
 
-    @Override
-    public int getIteration() {
-        return this.mainMemory.getIteration();
+    override fun getIteration(): Int {
+        return mainMemory.iteration
     }
 
-    @Override
-    public void setRuntime(final long runTime) {
-        this.mainMemory.setRuntime(runTime);
+    override fun setRuntime(runTime: Long) {
+        mainMemory.runtime = runTime
     }
 
-    @Override
-    public long getRuntime() {
-        return this.mainMemory.getRuntime();
+    override fun getRuntime(): Long {
+        return mainMemory.runtime
     }
 
-    @Override
-    public boolean isInitialIteration() {
-        return this.mainMemory.isInitialIteration();
+    override fun isInitialIteration(): Boolean {
+        return mainMemory.isInitialIteration
     }
 
-    @Override
-    public <R> R get(final String key) throws IllegalArgumentException {
-        return this.mainMemory.get(key);
+    @Throws(IllegalArgumentException::class)
+    override fun <R> get(key: String): R {
+        return mainMemory.get(key)
     }
 
-    @Override
-    public void set(final String key, final Object value) {
-        this.mainMemory.set(key, value);
+    override fun set(key: String, value: Any) {
+        mainMemory[key] = value
     }
 
-    @Override
-    public void add(final String key, final Object value) {
-        this.mainMemory.checkKeyValue(key, value);
-        final Object v = this.workerMemory.get(key);
-        this.workerMemory.put(key, null == v ? value : this.reducers.get(key).apply(v, value));
+    override fun add(key: String, value: Any) {
+        mainMemory.checkKeyValue(key, value)
+        val v = workerMemory[key]
+        workerMemory[key] = if (null == v) value else reducers[key]!!.apply(v, value)
     }
 
-    @Override
-    public String toString() {
-        return this.mainMemory.toString();
+    override fun toString(): String {
+        return mainMemory.toString()
     }
 
-    protected void complete() {
-        for (final Map.Entry<String, Object> entry : this.workerMemory.entrySet()) {
-            this.mainMemory.add(entry.getKey(), entry.getValue());
+    protected fun complete() {
+        for ((key, value) in workerMemory) {
+            mainMemory.add(key, value)
         }
-        this.workerMemory.clear();
+        workerMemory.clear()
     }
 }

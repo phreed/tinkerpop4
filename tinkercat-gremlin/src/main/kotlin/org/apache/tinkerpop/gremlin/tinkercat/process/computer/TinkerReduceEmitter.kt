@@ -16,37 +16,35 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.tinkerpop.gremlin.tinkercat.process.computer;
+package org.apache.tinkerpop.gremlin.tinkercat.process.computer
 
-import org.apache.tinkerpop.gremlin.process.computer.KeyValue;
-import org.apache.tinkerpop.gremlin.process.computer.MapReduce;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import org.apache.tinkerpop.gremlin.process.computer.KeyValue
+import org.apache.tinkerpop.gremlin.process.computer.MapReduce.ReduceEmitter
+import java.util.concurrent.ConcurrentLinkedQueue
+import org.apache.tinkerpop.gremlin.process.computer.MapReduce
+import java.util.*
 
 /**
  * @author Marko A. Rodriguez (http://markorodriguez.com)
  */
-public final class TinkerReduceEmitter<OK, OV> implements MapReduce.ReduceEmitter<OK, OV> {
-
-    protected Queue<KeyValue<OK, OV>> reduceQueue = new ConcurrentLinkedQueue<>();
-
-    @Override
-    public void emit(final OK key, final OV value) {
-        this.reduceQueue.add(new KeyValue<>(key, value));
+class TinkerReduceEmitter<OK, OV> : ReduceEmitter<OK, OV> {
+    protected var reduceQueue: Queue<KeyValue<OK, OV>> = ConcurrentLinkedQueue()
+    override fun emit(key: OK, value: OV) {
+        reduceQueue.add(KeyValue(key, value))
     }
 
-    protected void complete(final MapReduce<?, ?, OK, OV, ?> mapReduce) {
-        if (mapReduce.getReduceKeySort().isPresent()) {
-            final Comparator<OK> comparator = mapReduce.getReduceKeySort().get();
-            final List<KeyValue<OK, OV>> list = new ArrayList<>(this.reduceQueue);
-            Collections.sort(list, Comparator.comparing(KeyValue::getKey, comparator));
-            this.reduceQueue.clear();
-            this.reduceQueue.addAll(list);
+    protected fun complete(mapReduce: MapReduce<*, *, OK, OV, *>) {
+        if (mapReduce.reduceKeySort.isPresent) {
+            val comparator = mapReduce.reduceKeySort.get()
+            val list: List<KeyValue<OK, OV>> = ArrayList(
+                reduceQueue
+            )
+            Collections.sort(list, Comparator.comparing(
+                { obj: KeyValue<OK, OV> -> obj.key }, comparator
+            )
+            )
+            reduceQueue.clear()
+            reduceQueue.addAll(list)
         }
     }
 }

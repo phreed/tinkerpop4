@@ -16,160 +16,134 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.tinkerpop.gremlin.tinkercat.structure;
+package org.apache.tinkerpop.gremlin.tinkercat.structure
 
-import org.apache.tinkerpop.gremlin.structure.Element;
-import org.apache.tinkerpop.gremlin.structure.Graph;
-import org.apache.tinkerpop.gremlin.structure.Property;
-import org.apache.tinkerpop.gremlin.structure.Vertex;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import org.apache.tinkerpop.gremlin.structure.Element
+import org.apache.tinkerpop.gremlin.structure.Graph
+import org.apache.tinkerpop.gremlin.structure.Property
+import org.apache.tinkerpop.gremlin.structure.Vertex
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat
+import java.util.concurrent.ConcurrentHashMap
+import java.lang.IllegalArgumentException
+import java.util.ArrayList
+import java.util.HashSet
 
 /**
  * @author Marko A. Rodriguez (http://markorodriguez.com)
  */
-final class TinkerIndex<T extends Element> {
-
-    protected Map<String, Map<Object, Set<T>>> index = new ConcurrentHashMap<>();
-    protected final Class<T> indexClass;
-    private final Set<String> indexedKeys = new HashSet<>();
-    private final TinkerCat graph;
-
-    public TinkerIndex(final TinkerCat graph, final Class<T> indexClass) {
-        this.graph = graph;
-        this.indexClass = indexClass;
-    }
-
-    protected void put(final String key, final Object value, final T element) {
-        Map<Object, Set<T>> keyMap = this.index.get(key);
+internal class TinkerIndex<T : Element?>(private val graph: TinkerCat, protected val indexClass: Class<T>) {
+    protected var index: MutableMap<String, MutableMap<Any, MutableSet<T>>> = ConcurrentHashMap()
+    private val indexedKeys: MutableSet<String> = HashSet()
+    protected fun put(key: String, value: Any, element: T) {
+        var keyMap = index[key]
         if (null == keyMap) {
-            this.index.putIfAbsent(key, new ConcurrentHashMap<>());
-            keyMap = this.index.get(key);
+            index.putIfAbsent(key, ConcurrentHashMap())
+            keyMap = index[key]
         }
-        Set<T> objects = keyMap.get(value);
+        var objects = keyMap!![value]
         if (null == objects) {
-            keyMap.putIfAbsent(value, ConcurrentHashMap.newKeySet());
-            objects = keyMap.get(value);
+            keyMap.putIfAbsent(value, ConcurrentHashMap.newKeySet())
+            objects = keyMap[value]
         }
-        objects.add(element);
+        objects!!.add(element)
     }
 
-    public List<T> get(final String key, final Object value) {
-        final Map<Object, Set<T>> keyMap = this.index.get(key);
-        if (null == keyMap) {
-            return Collections.emptyList();
+    operator fun get(key: String, value: Any?): List<T> {
+        val keyMap: Map<Any, MutableSet<T>>? = index[key]
+        return if (null == keyMap) {
+            emptyList()
         } else {
-            Set<T> set = keyMap.get(indexable(value));
-            if (null == set)
-                return Collections.emptyList();
-            else
-                return new ArrayList<>(set);
+            val set: Set<T>? =
+                keyMap[indexable(value)]
+            if (null == set) emptyList() else ArrayList(set)
         }
     }
 
-    public long count(final String key, final Object value) {
-        final Map<Object, Set<T>> keyMap = this.index.get(key);
-        if (null == keyMap) {
-            return 0;
+    fun count(key: String, value: Any?): Long {
+        val keyMap: Map<Any, MutableSet<T>>? = index[key]
+        return if (null == keyMap) {
+            0
         } else {
-            final Set<T> set = keyMap.get(indexable(value));
-            if (null == set)
-                return 0;
-            else
-                return set.size();
+            val set: Set<T>? =
+                keyMap[indexable(value)]
+            set?.size?.toLong() ?: 0
         }
     }
 
-    public void remove(final String key, final Object value, final T element) {
-        final Map<Object, Set<T>> keyMap = this.index.get(key);
+    fun remove(key: String, value: Any, element: T) {
+        val keyMap = index[key]
         if (null != keyMap) {
-            final Set<T> objects = keyMap.get(indexable(value));
+            val objects = keyMap[indexable(value)]
             if (null != objects) {
-                objects.remove(element);
-                if (objects.size() == 0) {
-                    keyMap.remove(value);
+                objects.remove(element)
+                if (objects.size == 0) {
+                    keyMap.remove(value)
                 }
             }
         }
     }
 
-    public void removeElement(final T element) {
-        if (this.indexClass.isAssignableFrom(element.getClass())) {
-            for (Map<Object, Set<T>> map : index.values()) {
-                for (Set<T> set : map.values()) {
-                    set.remove(element);
+    fun removeElement(element: T) {
+        if (indexClass.isAssignableFrom(element.javaClass)) {
+            for (map in index.values) {
+                for (set in map.values) {
+                    set.remove(element)
                 }
             }
         }
     }
 
-    public void autoUpdate(final String key, final Object newValue, final Object oldValue, final T element) {
-        if (this.indexedKeys.contains(key)) {
-            this.remove(key, oldValue, element);
-            this.put(key, newValue, element);
+    fun autoUpdate(key: String, newValue: Any, oldValue: Any, element: T) {
+        if (indexedKeys.contains(key)) {
+            this.remove(key, oldValue, element)
+            put(key, newValue, element)
         }
     }
 
-    public void createKeyIndex(final String key) {
-        if (null == key)
-            throw Graph.Exceptions.argumentCanNotBeNull("key");
-        if (key.isEmpty())
-            throw new IllegalArgumentException("The key for the index cannot be an empty string");
-
-        if (this.indexedKeys.contains(key))
-            return;
-        this.indexedKeys.add(key);
-
-        (Vertex.class.isAssignableFrom(this.indexClass) ?
-                this.graph.vertices.values().parallelStream() :
-                this.graph.edges.values().parallelStream())
-                .map(e -> new Object[]{((T) e).property(key), e})
-                .filter(a -> ((Property) a[0]).isPresent())
-                .forEach(a -> this.put(key, ((Property) a[0]).value(), (T) a[1]));
+    fun createKeyIndex(key: String?) {
+        if (null == key) throw Graph.Exceptions.argumentCanNotBeNull("key")
+        require(!key.isEmpty()) { "The key for the index cannot be an empty string" }
+        if (indexedKeys.contains(key)) return
+        indexedKeys.add(key)
+        (if (Vertex::class.java.isAssignableFrom(indexClass)) graph.vertices.values.parallelStream() else graph.edges.values.parallelStream())
+            .map { e: Element -> arrayOf((e as T)!!.property<Any>(key), e) }
+            .filter { a: Array<Any> -> (a[0] as Property<*>).isPresent }
+            .forEach { a: Array<Any> -> put(key, (a[0] as Property<*>).value(), a[1] as T) }
     }
 
-    public void dropKeyIndex(final String key) {
-        if (this.index.containsKey(key))
-            this.index.remove(key).clear();
-
-        this.indexedKeys.remove(key);
+    fun dropKeyIndex(key: String) {
+        if (index.containsKey(key)) index.remove(key)!!.clear()
+        indexedKeys.remove(key)
     }
 
-    /**
-     * Provides a way for an index to have a {@code null} value as {@code ConcurrentHashMap} will not allow a
-     * {@code null} key.
-     */
-    public static Object indexable(final Object obj) {
-        return null == obj ? IndexedNull.instance() : obj;
+    fun getIndexedKeys(): Set<String> {
+        return indexedKeys
     }
 
-    public Set<String> getIndexedKeys() {
-        return this.indexedKeys;
-    }
-
-    public static final class IndexedNull {
-        private static final IndexedNull inst = new IndexedNull();
-
-        private IndexedNull() {}
-
-        static IndexedNull instance() {
-            return inst;
+    class IndexedNull private constructor() {
+        override fun hashCode(): Int {
+            return 751912123
         }
 
-        @Override
-        public int hashCode() {
-            return 751912123;
+        override fun equals(o: Any?): Boolean {
+            return o is IndexedNull
         }
 
-        @Override
-        public boolean equals(final Object o) {
-            return o instanceof IndexedNull;
+        companion object {
+            private val inst = IndexedNull()
+            fun instance(): IndexedNull {
+                return inst
+            }
+        }
+    }
+
+    companion object {
+        /**
+         * Provides a way for an index to have a `null` value as `ConcurrentHashMap` will not allow a
+         * `null` key.
+         */
+        fun indexable(obj: Any?): Any {
+            return obj ?: IndexedNull.instance()
         }
     }
 }

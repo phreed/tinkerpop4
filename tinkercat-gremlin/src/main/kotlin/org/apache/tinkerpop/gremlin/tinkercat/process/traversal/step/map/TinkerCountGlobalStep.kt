@@ -16,60 +16,51 @@
  *  specific language governing permissions and limitations
  *  under the License.
  */
+package org.apache.tinkerpop.gremlin.tinkercat.process.traversal.step.map
 
-package org.apache.tinkerpop.gremlin.tinkercat.process.traversal.step.map;
-
-import org.apache.tinkerpop.gremlin.process.traversal.Step;
-import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
-import org.apache.tinkerpop.gremlin.process.traversal.Traverser;
-import org.apache.tinkerpop.gremlin.process.traversal.step.util.AbstractStep;
-import org.apache.tinkerpop.gremlin.process.traversal.util.FastNoSuchElementException;
-import org.apache.tinkerpop.gremlin.structure.Element;
-import org.apache.tinkerpop.gremlin.structure.Vertex;
-import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
-import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat;
-import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerHelper;
-
-import java.util.NoSuchElementException;
+import org.apache.tinkerpop.gremlin.process.traversal.Step
+import org.apache.tinkerpop.gremlin.process.traversal.Traversal
+import org.apache.tinkerpop.gremlin.process.traversal.Traverser
+import org.apache.tinkerpop.gremlin.process.traversal.step.util.AbstractStep
+import kotlin.Throws
+import java.util.NoSuchElementException
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat
+import org.apache.tinkerpop.gremlin.process.traversal.util.FastNoSuchElementException
+import org.apache.tinkerpop.gremlin.structure.Element
+import org.apache.tinkerpop.gremlin.structure.Vertex
+import org.apache.tinkerpop.gremlin.structure.util.StringFactory
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerHelper
+import java.util.Locale
 
 /**
  * @author Marko A. Rodriguez (http://markorodriguez.com)
  */
-public final class TinkerCountGlobalStep<S extends Element> extends AbstractStep<S, Long> {
-
-    private final Class<S> elementClass;
-    private boolean done = false;
-
-    public TinkerCountGlobalStep(final Traversal.Admin traversal, final Class<S> elementClass) {
-        super(traversal);
-        this.elementClass = elementClass;
+class TinkerCountGlobalStep<S : Element?>(traversal: Traversal.Admin<*, *>?, private val elementClass: Class<S>) :
+    AbstractStep<S, Long?>(traversal) {
+    private var done = false
+    @Throws(NoSuchElementException::class)
+    override fun processNextStart(): Traverser.Admin<Long?>? {
+        return if (!done) {
+            done = true
+            val graph = getTraversal<Any, Any>().graph.get() as TinkerCat
+            getTraversal<Any, Any>().traverserGenerator.generate<Long>(
+                if (Vertex::class.java.isAssignableFrom(elementClass)) TinkerHelper.getVertices(
+                    graph
+                ).size.toLong() else TinkerHelper.getEdges(graph).size.toLong(),
+                this as Step<*, *>, 1L
+            )
+        } else throw FastNoSuchElementException.instance()
     }
 
-    @Override
-    protected Traverser.Admin<Long> processNextStart() throws NoSuchElementException {
-        if (!this.done) {
-            this.done = true;
-            final TinkerCat graph = (TinkerCat) this.getTraversal().getGraph().get();
-            return this.getTraversal().getTraverserGenerator().generate(Vertex.class.isAssignableFrom(this.elementClass) ?
-                            (long) TinkerHelper.getVertices(graph).size() :
-                            (long) TinkerHelper.getEdges(graph).size(),
-                    (Step) this, 1L);
-        } else
-            throw FastNoSuchElementException.instance();
+    override fun toString(): String {
+        return StringFactory.stepString(this, elementClass.simpleName.lowercase(Locale.getDefault()))
     }
 
-    @Override
-    public String toString() {
-        return StringFactory.stepString(this, this.elementClass.getSimpleName().toLowerCase());
+    override fun hashCode(): Int {
+        return super.hashCode() xor elementClass.hashCode()
     }
 
-    @Override
-    public int hashCode() {
-        return super.hashCode() ^ this.elementClass.hashCode();
-    }
-
-    @Override
-    public void reset() {
-        this.done = false;
+    override fun reset() {
+        done = false
     }
 }

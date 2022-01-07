@@ -129,11 +129,12 @@ limitations under the License.
         <module>gremlin-test</module>
         <module>gremlin-groovy</module>
         <module>tinkergraph-gremlin</module>
-<!--        <module>gremlin-javascript</module>-->
+        <module>tinkercat-gremlin</module>
+        <module>gremlin-javascript</module>
         <module>gremlin-python</module>
         <module>gremlin-dotnet</module>
-<!--        <module>hadoop-gremlin</module>-->
-<!--        <module>spark-gremlin</module>-->
+        <module>hadoop-gremlin</module>
+        <module>spark-gremlin</module>
         <module>neo4j-gremlin</module>
         <module>sparql-gremlin</module>
         <module>gremlin-driver</module>
@@ -436,6 +437,30 @@ limitations under the License.
                 <artifactId>maven-site-plugin</artifactId>
                 <configuration>
                     <skip>true</skip>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.jetbrains.kotlin</groupId>
+                <artifactId>kotlin-maven-plugin</artifactId>
+                <version>${kotlin.version}</version>
+                <executions>
+                    <execution>
+                        <id>compile</id>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>test-compile</id>
+                        <phase>test-compile</phase>
+                        <goals>
+                            <goal>test-compile</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <jvmTarget>1.8</jvmTarget>
                 </configuration>
             </plugin>
         </plugins>
@@ -812,6 +837,20 @@ limitations under the License.
             </dependency>
         </dependencies>
     </dependencyManagement>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.jetbrains.kotlin</groupId>
+            <artifactId>kotlin-stdlib-jdk8</artifactId>
+            <version>${kotlin.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.jetbrains.kotlin</groupId>
+            <artifactId>kotlin-test</artifactId>
+            <version>${kotlin.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
 
     <profiles>
 
