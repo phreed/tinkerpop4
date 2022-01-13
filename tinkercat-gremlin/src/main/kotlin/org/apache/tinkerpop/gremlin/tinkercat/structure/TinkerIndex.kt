@@ -31,9 +31,9 @@ import java.util.HashSet
 /**
  * @author Marko A. Rodriguez (http://markorodriguez.com)
  */
-internal class TinkerIndex<T : Element?>(private val graph: TinkerCat, protected val indexClass: Class<T>) {
+class TinkerIndex<T : Element?>(private val graph: TinkerCat, protected val indexClass: Class<T>) {
     protected var index: MutableMap<String, MutableMap<Any, MutableSet<T>>> = ConcurrentHashMap()
-    private val indexedKeys: MutableSet<String> = HashSet()
+    val indexedKeys: MutableSet<String> = HashSet()
     protected fun put(key: String, value: Any, element: T) {
         var keyMap = index[key]
         if (null == keyMap) {

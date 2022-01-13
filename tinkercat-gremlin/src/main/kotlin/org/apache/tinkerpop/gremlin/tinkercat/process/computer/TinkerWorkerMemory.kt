@@ -19,20 +19,7 @@
 package org.apache.tinkerpop.gremlin.tinkercat.process.computer
 
 import org.apache.tinkerpop.gremlin.process.computer.Memory
-import org.apache.tinkerpop.gremlin.tinkercat.process.computer.TinkerMemory.keys
-import org.apache.tinkerpop.gremlin.tinkercat.process.computer.TinkerMemory.incrIteration
-import org.apache.tinkerpop.gremlin.tinkercat.process.computer.TinkerMemory.setIteration
-import org.apache.tinkerpop.gremlin.tinkercat.process.computer.TinkerMemory.getIteration
-import org.apache.tinkerpop.gremlin.tinkercat.process.computer.TinkerMemory.setRuntime
-import org.apache.tinkerpop.gremlin.tinkercat.process.computer.TinkerMemory.getRuntime
-import org.apache.tinkerpop.gremlin.tinkercat.process.computer.TinkerMemory.isInitialIteration
-import org.apache.tinkerpop.gremlin.tinkercat.process.computer.TinkerMemory.get
-import org.apache.tinkerpop.gremlin.tinkercat.process.computer.TinkerMemory.set
-import org.apache.tinkerpop.gremlin.tinkercat.process.computer.TinkerMemory.checkKeyValue
-import org.apache.tinkerpop.gremlin.tinkercat.process.computer.TinkerMemory.toString
-import org.apache.tinkerpop.gremlin.tinkercat.process.computer.TinkerMemory.add
 import java.util.function.BinaryOperator
-import org.apache.tinkerpop.gremlin.process.computer.MemoryComputeKey
 import kotlin.Throws
 import java.lang.IllegalArgumentException
 import java.util.HashMap
@@ -46,7 +33,7 @@ class TinkerWorkerMemory(private val mainMemory: TinkerMemory) : Memory.Admin {
 
     init {
         for (key in mainMemory.memoryKeys.values) {
-            reducers[key.key] = key.clone().getReducer()
+            reducers[key.key] = key.clone().reducer as BinaryOperator<Any>
         }
     }
 
@@ -97,7 +84,7 @@ class TinkerWorkerMemory(private val mainMemory: TinkerMemory) : Memory.Admin {
         return mainMemory.toString()
     }
 
-    protected fun complete() {
+    fun complete() {
         for ((key, value) in workerMemory) {
             mainMemory.add(key, value)
         }

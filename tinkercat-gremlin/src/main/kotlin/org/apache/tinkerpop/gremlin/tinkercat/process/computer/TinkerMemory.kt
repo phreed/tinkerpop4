@@ -37,14 +37,13 @@ class TinkerMemory(vertexProgram: VertexProgram<*>?, mapReducers: Set<MapReduce<
     @JvmField
     val memoryKeys: MutableMap<String, MemoryComputeKey<*>> = HashMap()
     var previousMap: MutableMap<String, Optional<Any>>
-    var currentMap: MutableMap<String, Optional<Any>>
+    var currentMap: MutableMap<String, Optional<Any>> = ConcurrentHashMap()
     private val iteration = AtomicInteger(0)
     private val runtime = AtomicLong(0L)
     private var inExecute = false
 
     init {
         // ConcurrentHashMap makes us use Optional since you cant store null in them as values (or keys)
-        currentMap = ConcurrentHashMap()
         previousMap = ConcurrentHashMap()
         if (null != vertexProgram) {
             for (memoryComputeKey in vertexProgram.memoryComputeKeys) {
@@ -83,14 +82,14 @@ class TinkerMemory(vertexProgram: VertexProgram<*>?, mapReducers: Set<MapReduce<
         return runtime.get()
     }
 
-    protected fun complete() {
+    fun complete() {
         iteration.decrementAndGet()
         previousMap = currentMap
         memoryKeys.values.stream().filter { obj: MemoryComputeKey<*> -> obj.isTransient }
             .forEach { computeKey: MemoryComputeKey<*> -> previousMap.remove(computeKey.key) }
     }
 
-    protected fun completeSubRound() {
+    fun completeSubRound() {
         previousMap = ConcurrentHashMap(currentMap)
         inExecute = !inExecute
     }
@@ -121,7 +120,7 @@ class TinkerMemory(vertexProgram: VertexProgram<*>?, mapReducers: Set<MapReduce<
         currentMap.compute(key, BiFunction { k: String?, v: Optional<Any>? ->
             Optional.ofNullable(
                 if (null == v || !v.isPresent) value else memoryKeys[key]!!
-                    .reducer.apply(v.get(), value)
+                    .reducer.apply(v.get() as Nothing, value as Nothing)
             )
         })
     }

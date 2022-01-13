@@ -52,11 +52,7 @@ import org.apache.tinkerpop.shaded.kryo.io.Output;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * An implementation of the {@link IoRegistry} interface that provides serializers with custom configurations for

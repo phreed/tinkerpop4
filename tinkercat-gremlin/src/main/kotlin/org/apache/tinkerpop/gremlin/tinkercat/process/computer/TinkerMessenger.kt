@@ -19,22 +19,22 @@
 package org.apache.tinkerpop.gremlin.tinkercat.process.computer
 
 import org.apache.tinkerpop.gremlin.process.computer.MessageCombiner
-import org.apache.tinkerpop.gremlin.util.iterator.MultiIterator
 import org.apache.tinkerpop.gremlin.process.computer.MessageScope
 import org.apache.tinkerpop.gremlin.process.computer.Messenger
-import java.util.stream.StreamSupport
 import org.apache.tinkerpop.gremlin.process.computer.util.VertexProgramHelper
 import org.apache.tinkerpop.gremlin.process.traversal.Traversal
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentLinkedQueue
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.VertexStep
 import org.apache.tinkerpop.gremlin.process.traversal.util.TraversalHelper
 import org.apache.tinkerpop.gremlin.structure.Direction
 import org.apache.tinkerpop.gremlin.structure.Edge
 import org.apache.tinkerpop.gremlin.structure.Vertex
+import org.apache.tinkerpop.gremlin.util.iterator.MultiIterator
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.function.Consumer
 import java.util.stream.Stream
+import java.util.stream.StreamSupport
 
 /**
  * @author Marko A. Rodriguez (http://markorodriguez.com)
@@ -53,15 +53,14 @@ class TinkerMessenger<M>(
     override fun receiveMessages(): Iterator<M> {
         val multiIterator = MultiIterator<M>()
         for (messageScope in messageBoard.receiveMessages.keys) {
-//        for (final MessageScope messageScope : this.messageBoard.previousMessageScopes) {
+//        for (final MessageScope messageScope in this.messageBoard.previousMessageScopes) {
             if (messageScope is MessageScope.Local<*>) {
                 val localMessageScope = messageScope as MessageScope.Local<M>
-                val incidentTraversal = setVertexStart<Traversal.Admin<Vertex, Edge>>(
+                val incidentTraversal = setVertexStart<Traversal.Admin<Vertex?, Edge?>>(
                     localMessageScope.getIncidentTraversal().get().asAdmin(), vertex
                 )
                 val direction = getDirection(incidentTraversal)
-                val edge =
-                    arrayOfNulls<Edge>(1) // simulates storage side-effects available in Gremlin, but not Java streams
+                val edge = arrayOfNulls<Edge>(1) // simulates storage side-effects available in Gremlin, but not Java streams
                 multiIterator.addIterator(StreamSupport.stream(
                     Spliterators.spliteratorUnknownSize(
                         VertexProgramHelper.reverse(
@@ -69,18 +68,19 @@ class TinkerMessenger<M>(
                         ), Spliterator.IMMUTABLE or Spliterator.SIZED
                     ), false
                 )
-                    .map { e: Edge ->
+                    .filter { it != null }
+                    .map { e: Edge? ->
                         edge[0] = e
-                        val vv: Vertex
-                        vv = if (direction == Direction.IN || direction == Direction.OUT) {
-                            e.vertices(direction).next()
-                        } else {
-                            if (e.outVertex() === vertex) e.inVertex() else e.outVertex()
+                        val vv = when {
+                            direction == Direction.IN -> e?.vertices(direction)?.next()
+                            direction == Direction.OUT -> e?.vertices(direction)?.next()
+                            e!!.outVertex() === vertex -> e?.inVertex()
+                            else -> e?.outVertex()
                         }
                         messageBoard.receiveMessages[messageScope]!![vv]
                     }
                     .filter { q: Queue<M>? -> null != q }
-                    .flatMap<M> { obj: Queue<*> -> obj.stream() }
+                    .flatMap<M> { obj -> obj?.stream() }
                     .map { message: M -> localMessageScope.getEdgeFunction().apply(message, edge[0]) }
                     .iterator())
             } else {
@@ -88,7 +88,7 @@ class TinkerMessenger<M>(
                     Stream.of(vertex)
                         .map { key: Any? -> messageBoard.receiveMessages[messageScope]!![key] }
                         .filter { q: Queue<M>? -> null != q }
-                        .flatMap<M> { obj: Queue<*> -> obj.stream() }
+                        .flatMap<M> { obj -> obj?.stream() }
                         .iterator())
             }
         }
@@ -106,14 +106,13 @@ class TinkerMessenger<M>(
     }
 
     private fun addMessage(vertex: Vertex, message: M, messageScope: MessageScope) {
-        messageBoard.sendMessages.compute(messageScope) { ms: MessageScope?, messages: MutableMap<Vertex?, out Queue<M?>?>? ->
-            if (null == messages) messages = ConcurrentHashMap<Any?, Any?>()
-            messages
+        messageBoard.sendMessages.compute(messageScope) { _, messages ->
+            messages ?: ConcurrentHashMap<Any?, Any?>() as MutableMap<Vertex, Queue<M>>
         }
-        messageBoard.sendMessages[messageScope].compute(vertex) { v: Vertex?, queue: Queue<M>? ->
-            if (null == queue) queue = ConcurrentLinkedQueue<Any>()
-            queue.add(if (null != combiner && !queue.isEmpty()) combiner.combine(queue.remove(), message) else message)
-            queue
+        messageBoard.sendMessages[messageScope]?.compute(vertex) { _, queue ->
+            val newQueue = queue ?: ConcurrentLinkedQueue<Any>() as Queue<M>
+            newQueue.add(if (null != combiner && !newQueue.isEmpty()) combiner.combine(newQueue.remove(), message) else message)
+            newQueue
         }
     }
 
@@ -133,7 +132,7 @@ class TinkerMessenger<M>(
             return incidentTraversal as T
         }
 
-        private fun getDirection(incidentTraversal: Traversal.Admin<Vertex, Edge>): Direction {
+        private fun getDirection(incidentTraversal: Traversal.Admin<Vertex?, Edge?>): Direction {
             val step = TraversalHelper.getLastStepOfAssignableClass(
                 VertexStep::class.java, incidentTraversal
             ).get()

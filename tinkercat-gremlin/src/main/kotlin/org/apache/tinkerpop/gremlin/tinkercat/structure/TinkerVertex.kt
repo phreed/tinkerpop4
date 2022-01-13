@@ -43,7 +43,7 @@ import java.util.stream.Collectors
 /**
  * @author Marko A. Rodriguez (http://markorodriguez.com)
  */
-class TinkerVertex protected constructor(id: Any?, label: String?, private val graph: TinkerCat) : TinkerElement(
+class TinkerVertex(id: Any?, label: String?, private val graph: TinkerCat) : TinkerElement(
     id!!, label!!
 ), Vertex {
     var properties: MutableMap<String, MutableList<VertexProperty<*>>>? = null

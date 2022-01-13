@@ -71,7 +71,7 @@ class TinkerCatCountStrategy private constructor() : AbstractTraversalStrategy<P
         }
         val elementClass = (steps[0] as GraphStep<*, *>).returnClass
         TraversalHelper.removeAllSteps(traversal)
-        traversal.addStep(TinkerCountGlobalStep<Element?>(traversal, elementClass))
+        traversal.addStep(TinkerCountGlobalStep(traversal, elementClass as Class<Element?>))
     }
 
     override fun applyPost(): Set<Class<out ProviderOptimizationStrategy>> {

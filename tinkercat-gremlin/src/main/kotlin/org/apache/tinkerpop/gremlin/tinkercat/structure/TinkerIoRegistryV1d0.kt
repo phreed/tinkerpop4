@@ -22,13 +22,26 @@ import org.apache.commons.configuration2.BaseConfiguration
 import org.apache.commons.configuration2.Configuration
 import org.apache.tinkerpop.gremlin.structure.Edge
 import org.apache.tinkerpop.gremlin.structure.Vertex
+import org.apache.tinkerpop.gremlin.structure.io.AbstractIoRegistry
 import org.apache.tinkerpop.gremlin.structure.io.Mapper
+import org.apache.tinkerpop.gremlin.structure.io.binary.TypeSerializer
+import org.apache.tinkerpop.gremlin.structure.io.graphson.GraphSONIo
+import org.apache.tinkerpop.gremlin.structure.io.graphson.GraphSONTokens
+import org.apache.tinkerpop.gremlin.structure.io.gryo.GryoIo
+import org.apache.tinkerpop.gremlin.structure.io.gryo.GryoReader
 import org.apache.tinkerpop.gremlin.structure.util.Attachable
+import org.apache.tinkerpop.gremlin.structure.util.detached.DetachedEdge
+import org.apache.tinkerpop.gremlin.structure.util.detached.DetachedVertex
+import org.apache.tinkerpop.gremlin.util.Serializer
 import org.apache.tinkerpop.shaded.jackson.core.JsonGenerator
+import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.io.IOException
 import java.lang.Exception
 import java.util.ArrayList
 import java.util.HashMap
+import javax.json.stream.JsonGenerator
+import javax.json.stream.JsonParser
 
 /**
  * An implementation of the [IoRegistry] interface that provides serializers with custom configurations for
@@ -201,7 +214,7 @@ class TinkerIoRegistryV1d0 private constructor() : AbstractIoRegistry() {
                     edgeData[GraphSONTokens.IN],
                     edgeData[GraphSONTokens.IN_LABEL].toString()
                 )
-                detached.attach(Attachable.Method.getOrCreate<Edge>(graph))
+                detached.attach(Attachable.Method.getOrCreate(graph))
             }
             return graph
         }

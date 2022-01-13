@@ -63,7 +63,7 @@ class TinkerCatIterator<E>(
         // so that the underlying resource can be closed after reading the
         // last value of the iterator.
         tryComputeNext()
-        return ret
+        return ret!!
     }
 
     private fun tryComputeNext(): Boolean {
@@ -82,5 +82,9 @@ class TinkerCatIterator<E>(
             StoreIteratorCounter.INSTANCE.decrement()
         }
         finished = true
+    }
+
+    override fun remove() {
+        TODO("Not yet implemented")
     }
 }

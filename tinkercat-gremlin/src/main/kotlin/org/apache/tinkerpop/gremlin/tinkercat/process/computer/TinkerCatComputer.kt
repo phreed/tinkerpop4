@@ -155,22 +155,22 @@ class TinkerCatComputer(private val graph: TinkerCat) : GraphComputer {
                         if (Thread.interrupted()) throw TraversalInterruptedException()
                         memory!!.completeSubRound()
                         workers.setVertexProgram(vertexProgram)
-                        workers.executeVertexProgram { vertices: Iterator<Vertex?>,
-                                                       vertexProgram: VertexProgram<*>,
-                                                       workerMemory: TinkerWorkerMemory ->
-                            vertexProgram.workerIterationStart(workerMemory.asImmutable())
-                            while (vertices.hasNext()) {
+                        workers.executeVertexProgram { vertices,
+                                                       vertexProgram,
+                                                       workerMemory ->
+                            vertexProgram?.workerIterationStart(workerMemory?.asImmutable())
+                            while (vertices!!.hasNext()) {
                                 val vertex = vertices.next()
                                 if (Thread.interrupted()) throw TraversalInterruptedException()
                                 val vertexProgrammer = ComputerGraph.vertexProgram(vertex, vertexProgram)
-                                val messageCombiner = vertexProgram.messageCombiner as Optional<MessageCombiner<Any?>>
-                                val messenger = TinkerMessenger<Any?>(vertex, messageBoard, messageCombiner)
-                                /* TODO: KOTLIN: messenger is not typed correctly
-                                vertexProgram.execute(vertexProgrammer, messenger, workerMemory)
-                                 */
+                                val messageCombiner = vertexProgram?.messageCombiner as Optional<MessageCombiner<Any?>?>
+                                val messenger = vertex?.let {
+                                    TinkerMessenger(it, messageBoard, messageCombiner)
+                                }
+                                vertexProgram.execute(vertexProgrammer, messenger as Nothing, workerMemory)
                             }
-                            vertexProgram.workerIterationEnd(workerMemory.asImmutable())
-                            workerMemory.complete()
+                            vertexProgram?.workerIterationEnd(workerMemory?.asImmutable())
+                            workerMemory?.complete()
                         }
                         messageBoard.completeIteration()
                         memory!!.completeSubRound()
@@ -192,13 +192,13 @@ class TinkerCatComputer(private val graph: TinkerCat) : GraphComputer {
                     )
                     workers.setMapReduce(mapReduce)
                     workers.executeMapReduce { workerMapReduce ->
-                        workerMapReduce.workerStart(MapReduce.Stage.MAP)
+                        workerMapReduce?.workerStart(MapReduce.Stage.MAP)
                         while (true) {
                             if (Thread.interrupted()) throw TraversalInterruptedException()
                             val vertex = vertices.next() ?: break
-                            workerMapReduce.map(ComputerGraph.mapReduce(vertex), mapEmitter)
+                            workerMapReduce?.map(ComputerGraph.mapReduce(vertex), mapEmitter as Nothing)
                         }
-                        workerMapReduce.workerEnd(MapReduce.Stage.MAP)
+                        workerMapReduce?.workerEnd(MapReduce.Stage.MAP)
                     }
                     // sort results if a map output sort is defined
                     mapEmitter.complete(mapReduce)
@@ -206,36 +206,35 @@ class TinkerCatComputer(private val graph: TinkerCat) : GraphComputer {
                     // no need to run combiners as this is single machine
                     if (mapReduce.doStage(MapReduce.Stage.REDUCE)) {
                         val reduceEmitter = TinkerReduceEmitter<Any, Any>()
-                        val iterator = mapEmitter.reduceMap.entries.iterator()
+                        val iterator = mapEmitter.reduceMap?.entries?.iterator()
                         if (iterator != null) {
                             val keyValues = SynchronizedIterator(iterator)
                             workers.executeMapReduce { workerMapReduce ->
-                                workerMapReduce.workerStart(MapReduce.Stage.REDUCE)
+                                workerMapReduce?.workerStart(MapReduce.Stage.REDUCE)
                                 while (true) {
                                     if (Thread.interrupted()) throw TraversalInterruptedException()
                                     val (key, value) = keyValues.next() ?: break
-                                    workerMapReduce.reduce(key, value.iterator(), reduceEmitter)
+                                    workerMapReduce?.reduce(key as Nothing?,
+                                        value.iterator() as MutableIterator<Nothing>?,
+                                        reduceEmitter as Nothing
+                                    )
                                 }
-                                workerMapReduce.workerEnd(MapReduce.Stage.REDUCE)
+                                workerMapReduce?.workerEnd(MapReduce.Stage.REDUCE)
                             }
-                            /* TODO: KOTLIN: mapReduce is not typed correctly
-                            reduceEmitter.complete(mapReduce) // sort results if a reduce output sort is defined
+                            reduceEmitter.complete(mapReduce as MapReduce<*, *, Any, Any, *>) // sort results if a reduce output sort is defined
                             mapReduce.addResultToMemory(memory, reduceEmitter.reduceQueue.iterator())
-                             */
                         }
                     } else {
-                        /* TODO: KOTLIN:
-                        mapReduce.addResultToMemory(memory, mapEmitter.mapQueue.iterator())
-                         */
+                        mapReduce.addResultToMemory(memory, mapEmitter.mapQueue?.iterator() as MutableIterator<Nothing>?)
                     }
                 }
                 // update runtime and return the newly computed graph
                 memory!!.runtime = System.currentTimeMillis() - time
                 memory!!.complete() // drop all transient properties and set iteration
                 // determine the resultant graph based on the result graph/persist state
-                val resultGraph = view.processResultGraphPersist(resultGraph, persist)
+                val newResultGraph = resultGraph?.let { rg -> persist?.let { pt -> view.processResultGraphPersist(rg, pt) } }
                 TinkerHelper.dropGraphComputerView(graph) // drop the view from the original source graph
-                return@submit DefaultComputerResult(resultGraph, memory!!.asImmutable())
+                return@submit DefaultComputerResult(newResultGraph, memory!!.asImmutable())
             } catch (ie: InterruptedException) {
                 workers.closeNow()
                 throw TraversalInterruptedException()

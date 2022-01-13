@@ -39,9 +39,9 @@ import java.util.stream.Collectors
  * @author Marko A. Rodriguez (http://markorodriguez.com)
  * @author Pieter Martin
  */
-class TinkerCatStep<S, E : Element?>(originalGraphStep: GraphStep<S, E>) : GraphStep<S, E>(
+class TinkerCatStep<S, E : Element?>(originalGraphStep: GraphStep<*, *>) : GraphStep<S, E>(
     originalGraphStep.getTraversal<Any, Any>(),
-    originalGraphStep.returnClass,
+    originalGraphStep.returnClass as Class<E>?,
     originalGraphStep.isStartStep,
     *originalGraphStep.ids
 ), HasContainerHolder, AutoCloseable {
@@ -59,20 +59,27 @@ class TinkerCatStep<S, E : Element?>(originalGraphStep: GraphStep<S, E>) : Graph
         // but that allowed the filter in g.V(v).has('k','v') to be ignored.  this created problems for
         // PartitionStrategy which wants to prevent someone from passing "v" from one TraversalSource to
         // another TraversalSource using a different partition
-        setIteratorSupplier { (if (Vertex::class.java.isAssignableFrom(returnClass)) vertices() else edges()) as Iterator<E> }
+        setIteratorSupplier {
+            when {
+                Vertex::class.java.isAssignableFrom(returnClass) -> vertices()
+                else -> edges()
+            } as Iterator<E>
+        }
     }
 
     private fun edges(): Iterator<Edge> {
         val graph = getTraversal<Any, Any>().graph.get() as TinkerCat
         val indexedContainer = getIndexKey(Edge::class.java)
-        val iterator: Iterator<Edge>
         // ids are present, filter on them first
-        iterator =
-            if (null == ids) Collections.emptyIterator() else if (ids.size > 0) iteratorList(graph.edges(*ids)) else if (null == indexedContainer) iteratorList(
-                graph.edges()
-            ) else TinkerHelper.queryEdgeIndex(graph, indexedContainer.key, indexedContainer.predicate.value).stream()
-                .filter { edge: TinkerEdge? -> HasContainer.testAll(edge, hasContainers) }
-                .collect(Collectors.toList<Edge>()).iterator()
+        val iterator = when {
+            (null == ids) -> Collections.emptyIterator()
+            ids.isNotEmpty() -> iteratorList(graph.edges(*ids))
+            (null == indexedContainer) -> iteratorList(graph.edges())
+            else ->
+                TinkerHelper.queryEdgeIndex(graph, indexedContainer.key, indexedContainer.predicate.value).stream()
+                    .filter { edge: TinkerEdge? -> HasContainer.testAll(edge, hasContainers) }
+                    .collect(Collectors.toList<Edge>()).iterator()
+        }
         iterators.add(iterator)
         return iterator
     }
@@ -80,10 +87,8 @@ class TinkerCatStep<S, E : Element?>(originalGraphStep: GraphStep<S, E>) : Graph
     private fun vertices(): Iterator<Vertex> {
         val graph = getTraversal<Any, Any>().graph.get() as TinkerCat
         val indexedContainer = getIndexKey(Vertex::class.java)
-        val iterator: Iterator<Vertex>
         // ids are present, filter on them first
-        iterator =
-            if (null == ids) Collections.emptyIterator() else if (ids.size > 0) iteratorList(graph.vertices(*ids)) else if (null == indexedContainer) iteratorList(
+        val iterator = if (null == ids) Collections.emptyIterator() else if (ids.size > 0) iteratorList(graph.vertices(*ids)) else if (null == indexedContainer) iteratorList(
                 graph.vertices()
             ) else IteratorUtils.filter(
                 TinkerHelper.queryVertexIndex(graph, indexedContainer.key, indexedContainer.predicate.value).iterator()
@@ -101,7 +106,7 @@ class TinkerCatStep<S, E : Element?>(originalGraphStep: GraphStep<S, E>) : Graph
     }
 
     override fun toString(): String {
-        return if (hasContainers.isEmpty()) super.toString() else if (null == ids || 0 == ids.size) StringFactory.stepString(
+        return if (hasContainers.isEmpty()) super.toString() else if (null == ids || ids.isEmpty()) StringFactory.stepString(
             this,
             returnClass.simpleName.lowercase(Locale.getDefault()),
             hasContainers
@@ -144,5 +149,22 @@ class TinkerCatStep<S, E : Element?>(originalGraphStep: GraphStep<S, E>) : Graph
 
     override fun close() {
         iterators.forEach(Consumer { iterator: Iterator<*>? -> CloseableIterator.closeIterator(iterator) })
+    }
+
+    override fun remove() {
+        TODO("Not yet implemented")
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+        if (!super.equals(other)) return false
+
+        other as TinkerCatStep<*, *>
+
+        if (hasContainers != other.hasContainers) return false
+        if (iterators != other.iterators) return false
+
+        return true
     }
 }

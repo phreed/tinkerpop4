@@ -67,9 +67,11 @@ public final class TinkerMapEmitter<K, V> implements MapReduce.MapEmitter<K, V> 
             final Comparator<K> comparator = mapReduce.getMapKeySort().get();
             final List<Map.Entry<K, Queue<V>>> list = new ArrayList<>();
             list.addAll(this.reduceMap.entrySet());
-            Collections.sort(list, Comparator.comparing(Map.Entry::getKey, comparator));
+            Collections.sort(list,
+                    Comparator.comparing(Map.Entry::getKey, comparator));
             this.reduceMap = new LinkedHashMap<>();
-            list.forEach(entry -> this.reduceMap.put(entry.getKey(), entry.getValue()));
+            list.forEach(entry ->
+                    this.reduceMap.put(entry.getKey(), entry.getValue()));
         }
     }
 }

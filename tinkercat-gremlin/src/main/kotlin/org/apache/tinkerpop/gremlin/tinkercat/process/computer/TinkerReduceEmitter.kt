@@ -28,12 +28,12 @@ import java.util.*
  * @author Marko A. Rodriguez (http://markorodriguez.com)
  */
 class TinkerReduceEmitter<OK, OV> : ReduceEmitter<OK, OV> {
-    protected var reduceQueue: Queue<KeyValue<OK, OV>> = ConcurrentLinkedQueue()
+    var reduceQueue: Queue<KeyValue<OK, OV>> = ConcurrentLinkedQueue()
     override fun emit(key: OK, value: OV) {
         reduceQueue.add(KeyValue(key, value))
     }
 
-    protected fun complete(mapReduce: MapReduce<*, *, OK, OV, *>) {
+    fun complete(mapReduce: MapReduce<*, *, OK, OV, *>) {
         if (mapReduce.reduceKeySort.isPresent) {
             val comparator = mapReduce.reduceKeySort.get()
             val list: List<KeyValue<OK, OV>> = ArrayList(

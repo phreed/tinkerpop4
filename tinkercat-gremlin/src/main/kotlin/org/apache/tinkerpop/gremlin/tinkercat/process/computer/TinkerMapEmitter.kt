@@ -39,34 +39,28 @@ class TinkerMapEmitter<K, V>(private val doReduce: Boolean) : MapEmitter<K, V> {
     }
 
     override fun emit(key: K, value: V) {
-        if (doReduce) reduceMap!!.computeIfAbsent(key, Function<K, Queue<V?>> { k: K -> ConcurrentLinkedQueue() })
+        if (doReduce) reduceMap!!.computeIfAbsent(key) { ConcurrentLinkedQueue() }
             .add(value) else mapQueue!!.add(
             KeyValue(key, value)
         )
     }
 
-    protected fun complete(mapReduce: MapReduce<K, V, *, *, *>) {
+    fun complete(mapReduce: MapReduce<K, V, *, *, *>) {
         if (!doReduce && mapReduce.mapKeySort.isPresent) {
             val comparator = mapReduce.mapKeySort.get()
-            val list: List<KeyValue<K, V>> = ArrayList(
-                mapQueue
-            )
-            Collections.sort(list, Comparator.comparing(
-                { obj: KeyValue<K, V> -> obj.key }, comparator
-            )
-            )
+            val list = mutableListOf<KeyValue<K,V>>()
+                list.addAll(mapQueue!!)
+            list.sortWith { e0, e1 ->
+                comparator.compare(e0.key, e1.key)
+            }
             mapQueue!!.clear()
             mapQueue!!.addAll(list)
         } else if (mapReduce.mapKeySort.isPresent) {
             val comparator = mapReduce.mapKeySort.get()
-            val list: MutableList<Map.Entry<K, Queue<V>>> = ArrayList()
-            list.addAll(reduceMap!!.entries)
-            Collections.sort(list, Comparator.comparing(
-                Function<Map.Entry<K, Queue<V>>, K> { (key, value) -> java.util.Map.Entry.key }, comparator
-            )
-            )
-            reduceMap = LinkedHashMap()
-            list.forEach(Consumer { (key, value): Map.Entry<K, Queue<V>> -> reduceMap[key] = value })
+            val newReduceMap = this.reduceMap?.toSortedMap { e0, e1 ->
+                comparator.compare(e0, e1)
+            }
+            this.reduceMap = newReduceMap
         }
     }
 }

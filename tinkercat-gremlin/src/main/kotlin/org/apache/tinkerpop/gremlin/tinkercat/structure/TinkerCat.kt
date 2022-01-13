@@ -20,51 +20,28 @@ package org.apache.tinkerpop.gremlin.tinkercat.structure
 
 import org.apache.commons.configuration2.BaseConfiguration
 import org.apache.commons.configuration2.Configuration
-import org.apache.tinkerpop.gremlin.tinkercat.process.traversal.strategy.optimization.TinkerCatStepStrategy.Companion.instance
-import org.apache.tinkerpop.gremlin.tinkercat.process.traversal.strategy.optimization.TinkerCatCountStrategy.Companion.instance
-import org.apache.tinkerpop.gremlin.tinkercat.process.computer.TinkerCatComputerView.legalVertex
-import org.apache.tinkerpop.gremlin.tinkercat.process.computer.TinkerCatComputerView.legalEdge
-import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat.TinkerCatFeatures
-import java.util.concurrent.ConcurrentHashMap
-import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCatVariables
-import org.apache.tinkerpop.gremlin.tinkercat.process.computer.TinkerCatComputerView
-import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat
-import java.lang.IllegalStateException
-import org.apache.tinkerpop.gremlin.structure.util.ElementHelper
 import org.apache.tinkerpop.gremlin.process.computer.GraphComputer
-import org.apache.tinkerpop.gremlin.tinkercat.process.computer.TinkerCatComputer
-import org.apache.tinkerpop.gremlin.structure.io.Io
-import org.apache.tinkerpop.gremlin.structure.io.gryo.GryoVersion
-import org.apache.tinkerpop.gremlin.structure.io.graphson.GraphSONVersion
-import org.apache.tinkerpop.gremlin.structure.util.StringFactory
-import org.apache.tinkerpop.gremlin.structure.io.graphml.GraphMLIo
-import org.apache.tinkerpop.gremlin.structure.io.IoCore
-import org.apache.tinkerpop.gremlin.structure.io.graphson.GraphSONIo
-import org.apache.tinkerpop.gremlin.structure.io.gryo.GryoIo
-import java.lang.RuntimeException
-import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCatIterator
-import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat.TinkerCatGraphFeatures
-import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat.TinkerCatEdgeFeatures
-import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat.TinkerCatVertexFeatures
-import org.apache.tinkerpop.gremlin.structure.Graph.Features.GraphFeatures
-import org.apache.tinkerpop.gremlin.structure.Graph.Features.EdgeFeatures
-import org.apache.tinkerpop.gremlin.structure.Graph.Features.VertexFeatures
-import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat.TinkerCatVertexPropertyFeatures
-import org.apache.tinkerpop.gremlin.structure.Graph.Features.VertexPropertyFeatures
-import java.lang.IllegalArgumentException
-import java.lang.NumberFormatException
 import org.apache.tinkerpop.gremlin.process.traversal.TraversalStrategies
 import org.apache.tinkerpop.gremlin.structure.*
+import org.apache.tinkerpop.gremlin.structure.Graph.Features.*
+import org.apache.tinkerpop.gremlin.structure.io.Io
+import org.apache.tinkerpop.gremlin.structure.io.IoCore
 import org.apache.tinkerpop.gremlin.structure.io.Mapper
-import org.apache.tinkerpop.gremlin.tinkercat.process.traversal.strategy.optimization.TinkerCatStepStrategy
+import org.apache.tinkerpop.gremlin.structure.io.graphson.GraphSONVersion
+import org.apache.tinkerpop.gremlin.structure.io.gryo.GryoVersion
+import org.apache.tinkerpop.gremlin.structure.util.ElementHelper
+import org.apache.tinkerpop.gremlin.structure.util.StringFactory
+import org.apache.tinkerpop.gremlin.tinkercat.process.computer.TinkerCatComputer
+import org.apache.tinkerpop.gremlin.tinkercat.process.computer.TinkerCatComputerView
 import org.apache.tinkerpop.gremlin.tinkercat.process.traversal.strategy.optimization.TinkerCatCountStrategy
+import org.apache.tinkerpop.gremlin.tinkercat.process.traversal.strategy.optimization.TinkerCatStepStrategy
+import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat
 import org.apache.tinkerpop.gremlin.util.iterator.IteratorUtils
 import java.io.File
-import java.lang.Exception
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 import java.util.stream.Stream
-import kotlin.jvm.JvmOverloads
 
 /**
  * An in-memory (with optional persistence on calls to [.close]), reference implementation of the property
@@ -173,8 +150,8 @@ class TinkerCat private constructor(private val configuration: Configuration) : 
         }
             .create() as I else if (builder.requiresVersion(GraphSONVersion.V2_0)) // there is no gryo v2
             builder.graph(this)
-                .onMapper { mapper: Mapper.Builder<*> -> mapper.addRegistry(TinkerIoRegistryV2d0.instance()) }
-                .create() as I else builder.graph(this).onMapper { mapper: Mapper.Builder<*> ->
+                .onMapper { mapper -> mapper.addRegistry(TinkerIoRegistryV2d0.instance()) }
+                .create() as I else builder.graph(this).onMapper { mapper ->
             mapper.addRegistry(
                 TinkerIoRegistryV3d0.instance()
             )
@@ -225,14 +202,11 @@ class TinkerCat private constructor(private val configuration: Configuration) : 
         val f = File(graphLocation)
         if (f.exists() && f.isFile) {
             try {
-                if (graphFormat == "graphml") {
-                    io(IoCore.graphml()).readGraph(graphLocation)
-                } else if (graphFormat == "graphson") {
-                    io(IoCore.graphson()).readGraph(graphLocation)
-                } else if (graphFormat == "gryo") {
-                    io(IoCore.gryo()).readGraph(graphLocation)
-                } else {
-                    io(IoCore.createIoBuilder(graphFormat)).readGraph(graphLocation)
+                when (graphFormat) {
+                    "graphml" -> io(IoCore.graphml()).readGraph(graphLocation)
+                    "graphson" -> io(IoCore.graphson()).readGraph(graphLocation)
+                    "gryo" -> io(IoCore.gryo()).readGraph(graphLocation)
+                    else -> io(IoCore.createIoBuilder(graphFormat)).readGraph(graphLocation)
                 }
             } catch (ex: Exception) {
                 throw RuntimeException(
@@ -250,7 +224,7 @@ class TinkerCat private constructor(private val configuration: Configuration) : 
         } else {
             val parent = f.parentFile
 
-            // the parent would be null in the case of an relative path if the graphLocation was simply: "f.gryo"
+            // the parent would be null in the case of a relative path if the graphLocation was simply: "f.gryo"
             if (parent != null && !parent.exists()) {
                 parent.mkdirs()
             }
@@ -274,34 +248,34 @@ class TinkerCat private constructor(private val configuration: Configuration) : 
         clazz: Class<T>, elements: Map<Any, T>,
         idManager: IdManager<*>,
         vararg ids: Any
-    ): Iterator<T?> {
-        val iterator: Iterator<T>
-        iterator = if (0 == ids.size) {
+    ): Iterator<T> {
+        val iterator = if (ids.isEmpty()) {
             TinkerCatIterator(elements.values.iterator())
         } else {
-            val idList = Arrays.asList(*ids)
+            val idList = listOf(*ids)
 
             // TinkerCat can take a Vertex/Edge or any object as an "id". If it is an Element then we just cast
             // to that type and pop off the identifier. there is no need to pass that through the IdManager since
             // the assumption is that if it's already an Element, its identifier must be valid to the Graph and to
             // its associated IdManager. All other objects are passed to the IdManager for conversion.
-            return TinkerCatIterator(IteratorUtils.filter(IteratorUtils.map(idList) { id: Any? ->
-                // ids cant be null so all of those filter out
+            val foo = IteratorUtils.map(idList) { id ->
+                // ids can't be null so all of those filter out
                 if (null == id) return@map null
-                val iid = (if (clazz.isAssignableFrom(id.javaClass)) clazz.cast(id)!!.id() else idManager.convert(id))!!
+                val iid = if (clazz.isAssignableFrom(id.javaClass))
+                    clazz.cast(id)!!.id()
+                else idManager.convert(id)
                 elements[idManager.convert(iid)]
-            }.iterator()) { obj: T? -> Objects.nonNull(obj) })
+            }
+            val iterator = IteratorUtils.filter(foo.iterator()) { obj -> Objects.nonNull(obj) }
+            return TinkerCatIterator(iterator) as TinkerCatIterator<T>
         }
-        return if (TinkerHelper.inComputerMode(this)) (if (clazz == Vertex::class.java) IteratorUtils.filter(iterator as Iterator<Vertex>) { t: Vertex? ->
-            graphComputerView!!.legalVertex(
-                t!!
-            )
-        } else IteratorUtils.filter(iterator as Iterator<Edge>) { t: Edge ->
-            graphComputerView!!.legalEdge(
-                t.outVertex(),
-                t
-            )
-        }) as Iterator<T> else iterator
+        return if (TinkerHelper.inComputerMode(this))
+                (if (clazz == Vertex::class.java)
+                    IteratorUtils.filter(iterator as Iterator<Vertex>) { t: Vertex? ->
+                        graphComputerView!!.legalVertex( t!! )
+                    } else IteratorUtils.filter(iterator as Iterator<Edge>) { t: Edge ->
+                        graphComputerView!!.legalEdge( t.outVertex(), t )
+                    }) as Iterator<T> else iterator
     }
 
     /**
@@ -336,7 +310,7 @@ class TinkerCat private constructor(private val configuration: Configuration) : 
         }
     }
 
-    inner class TinkerCatVertexFeatures private constructor() : VertexFeatures {
+    inner class TinkerCatVertexFeatures() : VertexFeatures {
         private val vertexPropertyFeatures = TinkerCatVertexPropertyFeatures()
         override fun supportsNullPropertyValues(): Boolean {
             return allowNullPropertyValues
@@ -359,7 +333,7 @@ class TinkerCat private constructor(private val configuration: Configuration) : 
         }
     }
 
-    inner class TinkerCatEdgeFeatures private constructor() : EdgeFeatures {
+    inner class TinkerCatEdgeFeatures() : EdgeFeatures {
         override fun supportsNullPropertyValues(): Boolean {
             return allowNullPropertyValues
         }
@@ -373,7 +347,7 @@ class TinkerCat private constructor(private val configuration: Configuration) : 
         }
     }
 
-    inner class TinkerCatGraphFeatures private constructor() : GraphFeatures {
+    inner class TinkerCatGraphFeatures() : GraphFeatures {
         override fun supportsConcurrentAccess(): Boolean {
             return false
         }
@@ -387,7 +361,7 @@ class TinkerCat private constructor(private val configuration: Configuration) : 
         }
     }
 
-    inner class TinkerCatVertexPropertyFeatures private constructor() : VertexPropertyFeatures {
+    inner class TinkerCatVertexPropertyFeatures() : VertexPropertyFeatures {
         override fun supportsNullPropertyValues(): Boolean {
             return allowNullPropertyValues
         }
@@ -431,9 +405,9 @@ class TinkerCat private constructor(private val configuration: Configuration) : 
     </E> */
     fun <E : Element?> dropIndex(key: String?, elementClass: Class<E>) {
         if (Vertex::class.java.isAssignableFrom(elementClass)) {
-            if (null != vertexIndex) vertexIndex!!.dropKeyIndex(key)
+            if (null != vertexIndex) key?.let { vertexIndex!!.dropKeyIndex(it) }
         } else if (Edge::class.java.isAssignableFrom(elementClass)) {
-            if (null != edgeIndex) edgeIndex!!.dropKeyIndex(key)
+            if (null != edgeIndex) key?.let { edgeIndex!!.dropKeyIndex(it) }
         } else {
             throw IllegalArgumentException("Class is not indexable: $elementClass")
         }
@@ -498,22 +472,17 @@ class TinkerCat private constructor(private val configuration: Configuration) : 
             }
 
             override fun convert(id: Any?): Any? {
-                return if (null == id) null else id as? Long
-                    ?: if (id is Number) id.toLong() else if (id is String) {
-                        try {
-                            id as String?. toLong ()
-                        } catch (nfe: NumberFormatException) {
-                            throw IllegalArgumentException(
-                                createErrorMessage(
-                                    Long::class.java, id
-                                )
-                            )
-                        }
-                    } else throw IllegalArgumentException(
-                        createErrorMessage(
-                            Long::class.java, id
-                        )
-                    )
+                return when(id) {
+                    null -> null
+                    is Long -> id
+                    is Number -> id.toLong()
+                    is String -> try {
+                        id.toLong()
+                    } catch (nfe: NumberFormatException) {
+                        throw IllegalArgumentException(createErrorMessage(Long::class.java, id))
+                    }
+                    else -> throw IllegalArgumentException(createErrorMessage(Long::class.java, id))
+                }
             }
 
             override fun allow(id: Any?): Boolean {
@@ -534,22 +503,17 @@ class TinkerCat private constructor(private val configuration: Configuration) : 
             }
 
             override fun convert(id: Any?): Any? {
-                return if (null == id) null else id as? Int
-                    ?: if (id is Number) id.toInt() else if (id is String) {
-                        try {
-                            id as String?. toInt ()
-                        } catch (nfe: NumberFormatException) {
-                            throw IllegalArgumentException(
-                                createErrorMessage(
-                                    Int::class.java, id
-                                )
-                            )
-                        }
-                    } else throw IllegalArgumentException(
-                        createErrorMessage(
-                            Int::class.java, id
-                        )
-                    )
+                return when (id) {
+                    null -> null
+                    is Int -> id
+                    is Number -> id.toInt()
+                    is String -> try {
+                        id.toInt()
+                    }  catch (nfe: NumberFormatException) {
+                        throw IllegalArgumentException(createErrorMessage(Int::class.java, id))
+                    }
+                    else -> throw IllegalArgumentException(createErrorMessage(Int::class.java, id))
+                }
             }
 
             override fun allow(id: Any?): Boolean {

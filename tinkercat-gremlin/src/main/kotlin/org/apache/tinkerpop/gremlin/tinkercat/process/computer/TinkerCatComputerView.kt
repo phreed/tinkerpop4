@@ -41,13 +41,13 @@ import java.util.function.Function
 /**
  * @author Marko A. Rodriguez (http://markorodriguez.com)
  */
-class TinkerCatComputerView(
+open class TinkerCatComputerView(
     private val graph: TinkerCat,
     graphFilter: GraphFilter,
     computeKeys: Set<VertexComputeKey>
 ) {
     protected val computeKeys: MutableMap<String, VertexComputeKey>
-    private val computeProperties: MutableMap<Element, Map<String, MutableList<VertexProperty<*>>>>
+    private val computeProperties: MutableMap<Element, MutableMap<String, MutableList<VertexProperty<*>>>>
     private val legalVertices: MutableSet<Any> = HashSet()
     private val legalEdges: MutableMap<Any, Set<Any>> = HashMap()
     private val graphFilter: GraphFilter
@@ -104,7 +104,7 @@ class TinkerCatComputerView(
 
     fun getProperties(vertex: TinkerVertex?): List<Property<*>> {
         val list: MutableList<Property<*>> = ArrayList()
-        for (properties in TinkerHelper.getProperties(vertex).values) {
+        for (properties in vertex?.let { TinkerHelper.getProperties(it).values }!!) {
             list.addAll(properties!!)
         }
         for (properties in computeProperties.getOrDefault(vertex, emptyMap<String, List<VertexProperty<*>>>()).values) {
@@ -245,12 +245,14 @@ class TinkerCatComputerView(
 
     private fun addValue(vertex: Vertex, key: String, property: VertexProperty<*>) {
         val elementProperties = computeProperties.computeIfAbsent(
-            vertex,
-            Function<Element, Map<String, MutableList<VertexProperty<*>>>> { HashMap<String, List<VertexProperty<*>>>() })
+            vertex
+        ) {
+            HashMap<String, MutableList<VertexProperty<*>>>()
+        }
         elementProperties.compute(key, BiFunction { _: String?, v: MutableList<VertexProperty<*>>? ->
-            if (null == v) v = ArrayList()
-            v.add(property)
-            v
+            val nv = v ?: mutableListOf()
+            nv.add(property)
+            nv
         })
     }
 

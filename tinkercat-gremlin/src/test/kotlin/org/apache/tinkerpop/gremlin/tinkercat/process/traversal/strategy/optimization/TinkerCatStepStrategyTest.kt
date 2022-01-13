@@ -26,7 +26,6 @@ import org.junit.runner.RunWith
 import org.apache.tinkerpop.gremlin.process.traversal.TraversalStrategy
 import org.apache.tinkerpop.gremlin.process.traversal.TraversalStrategies
 import org.apache.tinkerpop.gremlin.process.traversal.util.DefaultTraversalStrategies
-import org.apache.tinkerpop.gremlin.tinkercat.process.traversal.strategy.optimization.TinkerCatStepStrategy
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.DefaultGraphTraversal
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__
@@ -35,7 +34,6 @@ import org.apache.tinkerpop.gremlin.process.traversal.step.map.GraphStep
 import org.apache.tinkerpop.gremlin.process.traversal.step.util.HasContainer
 import org.apache.tinkerpop.gremlin.process.traversal.util.EmptyTraversal
 import java.util.Arrays
-import org.apache.tinkerpop.gremlin.tinkercat.process.traversal.strategy.optimization.TinkerCatStepStrategyTest
 import org.apache.tinkerpop.gremlin.process.traversal.strategy.optimization.FilterRankingStrategy
 import org.apache.tinkerpop.gremlin.process.traversal.strategy.optimization.InlineFilterStrategy
 import org.apache.tinkerpop.gremlin.tinkercat.structure.TinkerCat

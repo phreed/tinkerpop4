@@ -43,12 +43,12 @@ class TinkerCountGlobalStep<S : Element?>(traversal: Traversal.Admin<*, *>?, pri
         return if (!done) {
             done = true
             val graph = getTraversal<Any, Any>().graph.get() as TinkerCat
-            getTraversal<Any, Any>().traverserGenerator.generate<Long>(
-                if (Vertex::class.java.isAssignableFrom(elementClass)) TinkerHelper.getVertices(
-                    graph
-                ).size.toLong() else TinkerHelper.getEdges(graph).size.toLong(),
-                this as Step<*, *>, 1L
-            )
+            val start = when {
+                Vertex::class.java.isAssignableFrom(elementClass) ->
+                    TinkerHelper.getVertices(graph).size.toLong()
+                else -> TinkerHelper.getEdges(graph).size.toLong()
+            }
+            getTraversal<Any, Any>().traverserGenerator.generate<Long>( start, this as Step<Long, *>, 1L )
         } else throw FastNoSuchElementException.instance()
     }
 
@@ -62,5 +62,9 @@ class TinkerCountGlobalStep<S : Element?>(traversal: Traversal.Admin<*, *>?, pri
 
     override fun reset() {
         done = false
+    }
+
+    override fun remove() {
+        TODO("Not yet implemented")
     }
 }

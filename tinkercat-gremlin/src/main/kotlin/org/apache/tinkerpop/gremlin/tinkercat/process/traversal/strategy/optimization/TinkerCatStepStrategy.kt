@@ -20,17 +20,15 @@ package org.apache.tinkerpop.gremlin.tinkercat.process.traversal.strategy.optimi
 
 import org.apache.tinkerpop.gremlin.process.traversal.Step
 import org.apache.tinkerpop.gremlin.process.traversal.Traversal
-import org.apache.tinkerpop.gremlin.tinkercat.process.traversal.step.sideEffect.TinkerCatStep.addHasContainer
-import org.apache.tinkerpop.gremlin.process.traversal.strategy.AbstractTraversalStrategy
 import org.apache.tinkerpop.gremlin.process.traversal.TraversalStrategy.ProviderOptimizationStrategy
-import org.apache.tinkerpop.gremlin.process.traversal.step.map.GraphStep
-import org.apache.tinkerpop.gremlin.tinkercat.process.traversal.step.sideEffect.TinkerCatStep
-import org.apache.tinkerpop.gremlin.process.traversal.step.filter.HasStep
-import org.apache.tinkerpop.gremlin.process.traversal.step.map.NoOpBarrierStep
-import org.apache.tinkerpop.gremlin.process.traversal.step.util.HasContainer
 import org.apache.tinkerpop.gremlin.process.traversal.step.HasContainerHolder
+import org.apache.tinkerpop.gremlin.process.traversal.step.filter.HasStep
+import org.apache.tinkerpop.gremlin.process.traversal.step.map.GraphStep
+import org.apache.tinkerpop.gremlin.process.traversal.step.map.NoOpBarrierStep
+import org.apache.tinkerpop.gremlin.process.traversal.strategy.AbstractTraversalStrategy
 import org.apache.tinkerpop.gremlin.process.traversal.util.TraversalHelper
-import org.apache.tinkerpop.gremlin.tinkercat.process.traversal.strategy.optimization.TinkerCatStepStrategy
+import org.apache.tinkerpop.gremlin.structure.Element
+import org.apache.tinkerpop.gremlin.tinkercat.process.traversal.step.sideEffect.TinkerCatStep
 
 /**
  * @author Marko A. Rodriguez (http://markorodriguez.com)
@@ -39,11 +37,12 @@ class TinkerCatStepStrategy private constructor() : AbstractTraversalStrategy<Pr
     ProviderOptimizationStrategy {
     override fun apply(traversal: Traversal.Admin<*, *>) {
         if (TraversalHelper.onGraphComputer(traversal)) return
-        for (originalGraphStep in TraversalHelper.getStepsOfClass(
-            GraphStep::class.java, traversal
-        )) {
-            val tinkerGraphStep: TinkerCatStep<*, *> = TinkerCatStep<Any?, Any?>(originalGraphStep)
+        val steps = TraversalHelper.getStepsOfClass(GraphStep::class.java, traversal)
+        for (originalGraphStep in steps) {
+            val tinkerGraphStep = TinkerCatStep<Any?, Element?>(originalGraphStep)
+            /* TODO:
             TraversalHelper.replaceStep(originalGraphStep, tinkerGraphStep, traversal)
+            */
             var currentStep: Step<*, *> = tinkerGraphStep.nextStep
             while (currentStep is HasStep<*> || currentStep is NoOpBarrierStep<*>) {
                 if (currentStep is HasStep<*>) {

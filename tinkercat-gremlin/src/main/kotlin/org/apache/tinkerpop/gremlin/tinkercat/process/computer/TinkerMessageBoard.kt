@@ -28,7 +28,7 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class TinkerMessageBoard<M> {
     @JvmField
-    var sendMessages: Map<MessageScope, Map<Vertex, Queue<M>>> = ConcurrentHashMap()
+    var sendMessages: MutableMap<MessageScope, MutableMap<Vertex, Queue<M>>> = ConcurrentHashMap()
     @JvmField
     var receiveMessages: Map<MessageScope, Map<Vertex, Queue<M>>> = ConcurrentHashMap()
     var previousMessageScopes: Set<MessageScope> = HashSet()
