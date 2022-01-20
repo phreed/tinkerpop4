@@ -21,7 +21,7 @@ limitations under the License.
         </encoder>
     </appender>
     <!-- need to turn this on so that we know the test seed -->
-    <logger name="org.apache.tinkerpop.gremlin.TestHelper" level="INFO"/>
+    <logger name="org.apache.tinkerpop4.gremlin.TestHelper" level="INFO"/>
     <root level="OFF">
         <appender-ref ref="stdout"/>
     </root>

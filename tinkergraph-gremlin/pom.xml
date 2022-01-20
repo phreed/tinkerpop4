@@ -52,6 +52,11 @@ limitations under the License.
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.apache.tinkerpop</groupId>
+            <artifactId>gremlin-shaded</artifactId>
+            <version>3.6.0-SNAPSHOT</version>
+        </dependency>
     </dependencies>
     <build>
         <directory>${basedir}/target</directory>
